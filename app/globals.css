@@ -1,0 +1,496 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0c0a08;
+  --surface: #14110e;
+  --surface-2: #1f1b16;
+  --border: #2a241e;
+  --border-strong: #3a322a;
+  --text: #ebe4d8;
+  --text-dim: #8a8275;
+  --text-faint: #5a5248;
+  --accent: #c87d4f;
+  --accent-bright: #d68a5a;
+  --accent-dim: #8a5836;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Geist", system-ui, -apple-system, sans-serif;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+/* ---------- LOGIN ATMOSPHERE ---------- */
+
+.login-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.login-glow {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1000px;
+  height: 600px;
+  background: radial-gradient(
+    ellipse at center top,
+    rgba(200, 125, 79, 0.07),
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-topo {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 47px,
+    rgba(200, 125, 79, 0.035) 47px,
+    rgba(200, 125, 79, 0.035) 48px
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse at center,
+    black 0%,
+    black 40%,
+    transparent 80%
+  );
+  mask-image: radial-gradient(
+    ellipse at center,
+    black 0%,
+    black 40%,
+    transparent 80%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-ridge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 180px;
+  background: var(--accent);
+  opacity: 0.06;
+  clip-path: polygon(
+    0% 100%,
+    0% 75%,
+    7% 65%,
+    14% 70%,
+    21% 50%,
+    28% 60%,
+    35% 45%,
+    42% 55%,
+    50% 35%,
+    58% 50%,
+    65% 40%,
+    72% 55%,
+    79% 48%,
+    86% 60%,
+    93% 52%,
+    100% 65%,
+    100% 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  animation: rise 1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tagline {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tagline-glyph {
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.brand {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 400;
+  font-variation-settings: "opsz" 144;
+  font-size: clamp(38px, 7vw, 56px);
+  letter-spacing: -0.025em;
+  color: var(--text);
+  margin: 0;
+  text-align: center;
+  line-height: 1;
+}
+
+.subtitle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subtitle-rule {
+  width: 24px;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.subtitle {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.field-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 11px 13px;
+  font-family: "Geist", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  outline: none;
+  transition: border-color 200ms ease, background 200ms ease;
+  border-radius: 0;
+}
+
+.field-input::placeholder {
+  color: var(--text-faint);
+}
+
+.field-input:focus {
+  border-color: var(--accent-dim);
+  background: var(--surface-2);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--accent);
+  color: #14110e;
+  border: none;
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 200ms ease, transform 100ms ease;
+  margin-top: 4px;
+}
+
+.btn-primary:hover {
+  background: var(--accent-bright);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  background: var(--accent-dim);
+  cursor: not-allowed;
+}
+
+.error-msg {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-top: -4px;
+}
+
+.preview-note {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- TOP BAR ---------- */
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: rgba(12, 10, 8, 0.82);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  z-index: 10;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 500;
+  font-size: 17px;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.topbar-brand-glyph {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-strong);
+}
+
+.topbar-context {
+  flex: 1;
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.topbar-context-region {
+  color: var(--accent);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: border-color 200ms ease, color 200ms ease;
+  border-radius: 0;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent-dim);
+  color: var(--text);
+}
+
+/* ---------- MAP ---------- */
+
+.map-shell {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+}
+
+.map-container {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.map-container .maplibregl-canvas {
+  outline: none;
+}
+
+.map-container .maplibregl-ctrl-top-right {
+  top: 16px;
+  right: 16px;
+}
+
+.map-container .maplibregl-ctrl-group {
+  background: rgba(20, 17, 14, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.map-container .maplibregl-ctrl-group button {
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+}
+
+.map-container .maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--border);
+}
+
+.map-container .maplibregl-ctrl-group button:hover {
+  background: var(--surface-2);
+}
+
+.map-container .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(0.85) sepia(0.15) saturate(0.6) brightness(0.95);
+}
+
+.map-container .maplibregl-ctrl-attrib {
+  background: rgba(12, 10, 8, 0.7);
+  color: var(--text-faint);
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 9px;
+}
+
+.map-container .maplibregl-ctrl-attrib a {
+  color: var(--text-dim);
+}
+
+/* ---------- MAP MARKERS ---------- */
+
+.tepuy-marker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  pointer-events: auto;
+  transform: translateZ(0);
+}
+
+.tepuy-marker-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 3px rgba(200, 125, 79, 0.18),
+    0 0 0 7px rgba(200, 125, 79, 0.08);
+  flex-shrink: 0;
+}
+
+.tepuy-marker--capital .tepuy-marker-dot {
+  background: var(--text);
+  box-shadow:
+    0 0 0 3px rgba(235, 228, 216, 0.2),
+    0 0 0 7px rgba(235, 228, 216, 0.08);
+}
+
+.tepuy-marker-label {
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: rgba(12, 10, 8, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+/* ---------- COORDS READOUT ---------- */
+
+.coords-readout {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 10;
+  background: rgba(12, 10, 8, 0.82);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--border);
+  padding: 7px 11px;
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.coords-readout span {
+  color: var(--text);
+}
