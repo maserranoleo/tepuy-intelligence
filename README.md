@@ -3,46 +3,52 @@
 The operational picture of Venezuela's natural gas system. v1 ships:
 
 - A map of Venezuela (MapLibre + open basemap, fit to country bounds).
-- A pipelines layer color-coded by status, click-to-detail.
+- A pipelines layer color-coded by status, click-to-detail with source attribution.
 - A FastAPI backend serving GeoJSON from PostGIS.
 - An ingestion path for Global Energy Monitor's [Global Gas Infrastructure
   Tracker](https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/),
   filtered to Venezuela + cross-border (Colombia, Trinidad).
 - A small `manual_seed` source so the app has real, sourced data on first boot.
 
-Public-facing, no auth. Same map serves as a reference picture for analysts,
-researchers, and journalists.
+Public-facing, no auth.
 
 ## Run it
 
-You need Docker (with the Compose plugin) and Node 20+.
+You need:
+
+- **Python 3.12** (`python3.12 --version`)
+- **Node 20+** (`node --version`)
+- A free **Supabase** project with PostGIS enabled — see
+  [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for the 5-minute walkthrough.
+
+Then, from the repo root:
 
 ```bash
-cp .env.example .env
-docker compose up --build
+cp .env.example .env       # paste your Supabase connection string
+make install               # one-time: venv + Python deps + npm deps
+make migrate               # one-time: create the schema
+make seed                  # one-time: load the 6 manual_seed pipelines
+make api                   # runs FastAPI with auto-reload on :8000
 ```
 
-That brings up Postgres+PostGIS, runs Alembic migrations, seeds the database
-from `manual_seed`, and starts the FastAPI backend on port 8000. In a second
-terminal:
+In a second terminal:
 
 ```bash
 cd frontend
-cp .env.example .env
-npm install
-npm run dev
+cp .env.example .env       # one-time
+npm run dev                # opens on :5173
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Click any pipeline.
+Open [http://localhost:5173](http://localhost:5173) and click any pipeline.
 
-### What you should see on first boot
+### What you'll see on first boot
 
-Six hand-curated, publicly-sourced Venezuelan pipelines appear on the map:
-Anaco–Caracas, Anaco–Puerto Ordaz, Anaco–Barquisimeto (ICO), the Antonio
-Ricaurte VEN↔CO interconnector, the Perla field tie-in, and the proposed
-Dragon–Hibiscus VEN↔TT crossing. Each row carries source attribution and a
-`geometry_quality: approximate_endpoints` flag — they're real entities, but
-not survey-grade traces. They are placeholders until you ingest GEM.
+Six hand-curated, publicly-sourced Venezuelan pipelines: Anaco–Caracas,
+Anaco–Puerto Ordaz, Anaco–Barquisimeto (ICO), the Antonio Ricaurte VEN↔CO
+interconnector, the Perla field tie-in, and the proposed Dragon–Hibiscus
+VEN↔TT crossing. Each row carries source attribution and a
+`geometry_quality: approximate_endpoints` flag — they are real entities, not
+survey-grade traces.
 
 ## Ingest GEM (Global Gas Infrastructure Tracker)
 
@@ -51,14 +57,18 @@ GEM distributes the GGIT as an Excel workbook behind a free, email-gated form.
 1. Download the latest GGIT workbook from
    [globalenergymonitor.org](https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/).
 2. Drop the `.xlsx` into `data_pipeline/.data/` (gitignored).
-3. With the stack running:
+3. Run:
 
    ```bash
-   docker compose exec backend \
-     python -m data_pipeline.sources.gem.load /data_pipeline/.data/<file>.xlsx
+   make ingest-gem FILE=data_pipeline/.data/<your-file>.xlsx
    ```
 
-   Add `--dry-run` to parse-and-report without writing.
+   Add `--dry-run` for parse-and-report:
+
+   ```bash
+   PYTHONPATH=backend:. backend/.venv/bin/python -m data_pipeline.sources.gem.load \
+     data_pipeline/.data/<your-file>.xlsx --dry-run
+   ```
 
 The loader filters to rows with Venezuela in their countries, plus VEN↔CO and
 VEN↔TT cross-border pairs. Status values are normalized
@@ -69,13 +79,13 @@ GEM rows live in their own database rows — keyed on `external_ids["gem"]` —
 distinct from `manual_seed` rows. They do not auto-merge in v1; analysts can
 see both and compare.
 
-## Architecture
+## Project layout
 
 ```
 backend/
   app/
     main.py                 FastAPI app + CORS + healthz
-    config.py               pydantic-settings
+    config.py               pydantic-settings (reads root .env)
     db.py                   engine, SessionLocal
     models/
       base.py               EntityBase mixin (shared columns for the entity zoo)
@@ -85,14 +95,12 @@ backend/
     api/
       pipelines.py          GET /api/pipelines, GET /api/pipelines/{id}
   alembic/                  migrations
-  Dockerfile
   pyproject.toml
 
 data_pipeline/
-  common/
-    upsert.py               PipelineRecord + idempotent upsert helper
+  common/upsert.py          PipelineRecord + idempotent upsert helper
   sources/
-    manual_seed/            real, cited Venezuelan pipelines (auto-runs at boot)
+    manual_seed/            real, cited Venezuelan pipelines (one-time seed)
     gem/                    GEM GGIT loader (manual file drop)
   .data/                    gitignored — drop ingestion inputs here
 
@@ -109,11 +117,12 @@ frontend/
     types/geojson.ts        documented properties schema
   index.html, vite.config.ts, tailwind.config.js
 
-docker-compose.yml          db + backend (frontend stays npm run dev)
-.env.example
+Makefile                    one-command tasks: install, migrate, seed, api, ingest-gem
+.env.example                root env (DATABASE_URL, CORS_ORIGINS)
+SUPABASE_SETUP.md           one-time database walkthrough
 ```
 
-### Architectural principles
+## Architectural principles
 
 1. **Provenance is non-negotiable.** Every entity row has `sources` JSONB:
    `[{source_name, source_id, retrieved_at, url, note}]`. The frontend always
@@ -124,10 +133,10 @@ docker-compose.yml          db + backend (frontend stays npm run dev)
    `external_ids[<source>] = <stable id>`; never duplicates.
 4. **Stable canonical IDs.** Internal UUID per row; external IDs in
    `external_ids` JSONB keyed by source name.
-5. **Schema ready for the entity zoo.** `EntityBase` defines the shared
-   columns. Adding a new entity type (fields, plants, terminals, flares,
-   incidents, operators, licenses) = one model + one migration + one API
-   route + one frontend layer config.
+5. **Schema ready for the entity zoo.** `EntityBase` defines shared columns.
+   Adding a new entity type (fields, plants, terminals, flares, incidents,
+   operators, licenses) = one model + one migration + one API route + one
+   frontend layer config.
 6. **GeoJSON over the wire.** Standard FeatureCollections; the
    `PipelineProperties` schema is documented in `schemas/pipeline.py` and
    `types/geojson.ts` (one source of truth per side).
@@ -137,7 +146,7 @@ docker-compose.yml          db + backend (frontend stays npm run dev)
 ## Adding a new data source
 
 This is the path you'll walk most often. Suppose you want to add an `eia`
-source for EIA pipeline data.
+source.
 
 1. Create the source folder and three files:
 
@@ -154,39 +163,24 @@ source for EIA pipeline data.
    - `geometry` as a Shapely `LineString` or `MultiLineString` (EPSG:4326).
    - One or more `SourceRef`s in `sources=[...]`.
 
-3. In `load.py`, mirror the GEM loader:
+3. In `load.py`, mirror the GEM loader: read input, call `transform()`,
+   `upsert_pipeline()` per record, `db.commit()`.
 
-   ```python
-   from app.db import SessionLocal
-   from data_pipeline.common.upsert import upsert_pipeline
-   from .transform import transform
+4. Document the source in `README.md`.
 
-   def main(argv):
-       result = transform(Path(argv[0]))
-       db = SessionLocal()
-       try:
-           for rec in result.records:
-               upsert_pipeline(db, rec)
-           db.commit()
-       finally:
-           db.close()
-   ```
-
-4. Document the source in `README.md` (URL, license, format, run command).
-
-That's it. No code in the backend or frontend needs to change — the new rows
-flow through the same API and render on the same layer, distinguished by
-`external_ids` and `sources` in the detail panel.
+That's it. No backend or frontend code changes — the new rows flow through
+the same API and render on the same layer, distinguished by `external_ids`
+and `sources` in the detail panel.
 
 ## Adding a new entity type
 
 Suppose you want a `processing_plants` layer.
 
-1. **Model** — `backend/app/models/processing_plant.py`. Inherit `Base,
-   EntityBase`; add a `Geometry("POINT", srid=4326)` column and the
+1. **Model** — `backend/app/models/processing_plant.py`. Inherit
+   `Base, EntityBase`; add a `Geometry("POINT", srid=4326)` column and the
    plant-specific columns. Register in `models/__init__.py`.
-2. **Migration** — `alembic revision --autogenerate -m "processing_plants"`,
-   review, commit.
+2. **Migration** — `cd backend && ../backend/.venv/bin/alembic revision
+   --autogenerate -m "processing_plants"`, review, commit.
 3. **Schema** — `backend/app/schemas/processing_plant.py` with
    `ProcessingPlantFeature` / `ProcessingPlantFeatureCollection`.
 4. **API** — `backend/app/api/processing_plants.py` with
@@ -197,9 +191,24 @@ Suppose you want a `processing_plants` layer.
 The shared `EntityBase` columns guarantee that provenance, status, aliases,
 and external IDs work the same way for every entity type.
 
+## Useful Make targets
+
+```
+make help            # list all targets
+make install         # one-time: backend venv + deps + frontend deps
+make migrate         # alembic upgrade head
+make seed            # load manual_seed pipelines
+make api             # uvicorn with --reload
+make ingest-gem FILE=path/to/ggit.xlsx
+make typecheck-front
+make build-front
+make clean           # nuke venv + node_modules
+```
+
 ## Notes & limitations (v1)
 
-- **No auth, no multi-tenancy.** Public-facing. Add it later.
+- **No auth, no multi-tenancy.** Public-facing. Add it later — Supabase Auth
+  + RLS is the natural path.
 - **No live data.** No VIIRS flaring, no Sentinel-5P methane, no AIS
   shipping. The schema is sized for it; the wiring isn't here.
 - **No tile server.** Pipelines ship as one GeoJSON. Will need vector tiles
@@ -209,25 +218,11 @@ and external IDs work the same way for every entity type.
   `manual_seed` and `gem` will show as two rows. Intentional in v1 — let the
   analyst see the disagreement, don't hide it.
 
-## Hacking on the backend without Docker
+## Smoke-test the GEM transform without a database
 
 ```bash
-cd backend
-python3.12 -m venv .venv
-.venv/bin/pip install -e .[ingest]
-# Point DATABASE_URL at any Postgres+PostGIS you have running.
-DATABASE_URL=postgresql+psycopg://... .venv/bin/alembic upgrade head
-PYTHONPATH=backend:. .venv/bin/python -m data_pipeline.sources.manual_seed.load
-.venv/bin/uvicorn app.main:app --reload
-```
-
-## Smoke test the GEM transform
-
-No DB required:
-
-```bash
-cd backend && .venv/bin/python -m pip install pandas openpyxl
-PYTHONPATH=backend:. .venv/bin/python -m data_pipeline.sources.gem.test_transform_smoke
+PYTHONPATH=backend:. backend/.venv/bin/python \
+  -m data_pipeline.sources.gem.test_transform_smoke
 ```
 
 Expected output: `OK: gem transform smoke passed`.
