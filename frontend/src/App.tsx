@@ -4,7 +4,7 @@ import DetailPanel from "./components/DetailPanel";
 import type { LayerRegistry } from "./map/LayerRegistry";
 import type { SelectedEntity } from "@/types/geojson";
 
-type LayerKey = "pipelines" | "gas_fields" | "flare_events";
+type LayerKey = "pipelines" | "gas_fields" | "processing_plants" | "flare_events";
 
 export default function App() {
   const [selected, setSelected] = useState<SelectedEntity | null>(null);
@@ -12,6 +12,7 @@ export default function App() {
   const [visibility, setVisibilityState] = useState<Record<LayerKey, boolean>>({
     pipelines: true,
     gas_fields: true,
+    processing_plants: true,
     flare_events: true,
   });
 
@@ -59,6 +60,11 @@ const GAS_FIELD_STATUSES: StatusItem[] = [
   { label: "Idle", color: "#64748b" },
 ];
 
+const PLANT_STATUSES: StatusItem[] = [
+  { label: "Operating", color: "#22d3ee" },
+  { label: "Proposed", color: "#94a3b8" },
+];
+
 const FLARE_KINDS: StatusItem[] = [
   { label: "Night detection", color: "#ff6b35" },
   { label: "Day detection", color: "#fbbf24" },
@@ -88,6 +94,14 @@ function LayerPanel({
           onChange={(v) => onToggle("gas_fields", v)}
         >
           <CircleSwatches items={GAS_FIELD_STATUSES} />
+        </LayerToggleRow>
+        <LayerToggleRow
+          label="Processing & Compression Plants"
+          checked={visibility.processing_plants}
+          onChange={(v) => onToggle("processing_plants", v)}
+        >
+          <CircleSwatches items={PLANT_STATUSES} />
+          <span className="text-neutral-500">compression · processing · cryogenic</span>
         </LayerToggleRow>
         <LayerToggleRow
           label="Flare Detections (VIIRS · 14d)"

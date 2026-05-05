@@ -18,6 +18,7 @@ from geoalchemy2.shape import from_shape
 
 from app.models.gas_field import GasField
 from app.models.pipeline import Pipeline
+from app.models.processing_plant import ProcessingPlant
 
 
 @dataclass
@@ -64,6 +65,27 @@ def _to_multilinestring(geom: BaseGeometry) -> MultiLineString:
     if geom.geom_type == "LineString":
         return MultiLineString([geom])
     raise ValueError(f"unsupported pipeline geometry: {geom.geom_type}")
+
+
+@dataclass
+class ProcessingPlantRecord:
+    """Normalized processing-plant record ready to upsert.
+
+    plant_type and capacity attributes go in `properties` JSONB; not promoted
+    to columns because units differ across compression vs processing plants.
+    """
+
+    source_name: str
+    external_id: str
+    name: str
+    geometry: BaseGeometry  # Point
+    name_es: str | None = None
+    aliases: list[str] = field(default_factory=list)
+    status: str = "unknown"
+    status_as_of: datetime | None = None
+    operator: str | None = None
+    properties: dict[str, Any] = field(default_factory=dict)
+    sources: list[SourceRef] = field(default_factory=list)
 
 
 @dataclass
@@ -143,6 +165,43 @@ def upsert_gas_field(db: Session, rec: GasFieldRecord) -> GasField:
 
     if row is None:
         row = GasField(
+            name=rec.name,
+            name_es=rec.name_es,
+            aliases=rec.aliases,
+            status=rec.status,
+            status_as_of=rec.status_as_of,
+            operator=rec.operator,
+            geometry=geom,
+            properties=rec.properties,
+            external_ids={rec.source_name: rec.external_id},
+            sources=[s.to_jsonb() for s in rec.sources],
+        )
+        db.add(row)
+    else:
+        row.name = rec.name
+        row.name_es = rec.name_es
+        row.aliases = rec.aliases
+        row.status = rec.status
+        row.status_as_of = rec.status_as_of
+        row.operator = rec.operator
+        row.geometry = geom
+        row.properties = rec.properties
+        row.external_ids = {**(row.external_ids or {}), rec.source_name: rec.external_id}
+        row.sources = [s.to_jsonb() for s in rec.sources]
+    return row
+
+
+def upsert_processing_plant(db: Session, rec: ProcessingPlantRecord) -> ProcessingPlant:
+    """Look up by external_ids[source_name] = external_id; update or insert."""
+    stmt = select(ProcessingPlant).where(
+        ProcessingPlant.external_ids[rec.source_name].astext == rec.external_id
+    )
+    row = db.execute(stmt).scalar_one_or_none()
+
+    geom = from_shape(_to_point(rec.geometry), srid=4326)
+
+    if row is None:
+        row = ProcessingPlant(
             name=rec.name,
             name_es=rec.name_es,
             aliases=rec.aliases,

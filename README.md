@@ -3,9 +3,12 @@
 The operational picture of Venezuela's natural gas system. v1 ships:
 
 - A map of Venezuela (MapLibre + open basemap, fit to country bounds).
-- Three pluggable layers, each toggleable:
+- Four pluggable layers, each toggleable:
   - **Gas Pipelines** — color-coded by status, click-to-detail, source attribution.
   - **Gas Fields** — point markers for fields like Perla, Dragon, Loran-Manatee.
+  - **Processing & Compression Plants** — point markers for the major plants:
+    Anaco, Ulé, José cryogenic, Morón / Maracay / Altagracia / Santa Bárbara
+    compression, Amuay (CRP) gas treatment, CIGMA (proposed).
   - **Flare Detections (VIIRS, last 14 days)** — heatmap + clickable points
     fed by NASA FIRMS satellite hotspots.
 - A FastAPI backend serving GeoJSON from PostGIS.

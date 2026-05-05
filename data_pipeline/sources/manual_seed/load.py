@@ -49,6 +49,7 @@ import logging
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from shapely.geometry import LineString, Point
 from sqlalchemy.orm import Session
@@ -57,9 +58,11 @@ from app.db import SessionLocal
 from data_pipeline.common.upsert import (
     GasFieldRecord,
     PipelineRecord,
+    ProcessingPlantRecord,
     SourceRef,
     upsert_gas_field,
     upsert_pipeline,
+    upsert_processing_plant,
 )
 
 logger = logging.getLogger("manual_seed")
@@ -680,24 +683,236 @@ def _gas_field_records() -> list[GasFieldRecord]:
     ]
 
 
-def run(db: Session) -> tuple[int, int]:
+def _processing_plant_records() -> list[ProcessingPlantRecord]:
+    """Documented Venezuelan gas processing & compression plants.
+
+    Coverage spans the four sub-types we care about for v1:
+      - processing  (gas treatment / NGL recovery)
+      - cryogenic   (deep NGL fractionation)
+      - compression (transmission boosters along the trunk lines)
+      - refinery_gas_treatment (refinery off-gas / fuel-gas systems)
+
+    plant_type lives in `properties` JSONB so adding a new sub-type later
+    (LNG terminal, city gate, metering station) doesn't require a migration.
+    """
+    now = datetime.now(UTC)
+
+    def _plant(
+        external_id: str,
+        name: str,
+        name_es: str,
+        plant_type: str,
+        coords: tuple[float, float],
+        operator: str,
+        status: str = "operating",
+        note: str = "",
+        extra_props: dict[str, Any] | None = None,
+        sources: list[SourceRef] | None = None,
+    ) -> ProcessingPlantRecord:
+        props: dict[str, Any] = {
+            "plant_type": plant_type,
+            "geometry_quality": "approximate_centroid",
+            "note": note,
+        }
+        if extra_props:
+            props.update(extra_props)
+        return ProcessingPlantRecord(
+            source_name=SOURCE_NAME,
+            external_id=external_id,
+            name=name,
+            name_es=name_es,
+            geometry=Point(coords[1], coords[0]),  # (lat, lon) → Point(lon, lat)
+            operator=operator,
+            status=status,
+            status_as_of=now,
+            properties=props,
+            sources=sources or [
+                _src_academia(now),
+                _src_pdvsa(now, projects=True),
+            ],
+        )
+
+    return [
+        _plant(
+            "ven-cgp-anaco",
+            name="Anaco Gas Processing Complex",
+            name_es="Complejo de Procesamiento de Gas Anaco",
+            plant_type="processing",
+            coords=(9.45, -64.45),
+            operator="PDVSA Gas",
+            note=(
+                "Anchor processing complex for the eastern (Anzoátegui) gas "
+                "fields; feeds the ABRS, Anaco–Caracas, Anaco–PZO and "
+                "Anaco–Jose trunk lines."
+            ),
+            extra_props={"role": "eastern hub"},
+        ),
+        _plant(
+            "ven-cgp-san-joaquin",
+            name="San Joaquín Gas Processing",
+            name_es="Procesamiento de Gas San Joaquín",
+            plant_type="processing",
+            coords=(9.95, -64.43),
+            operator="PDVSA Gas",
+            note=(
+                "Northern Anzoátegui processing satellite of the Anaco hub; "
+                "treats associated and non-associated gas from local fields."
+            ),
+        ),
+        _plant(
+            "ven-cgp-jose",
+            name="José Cryogenic Complex",
+            name_es="Complejo Criogénico de José",
+            plant_type="cryogenic",
+            coords=(10.18, -64.78),
+            operator="PDVSA Gas",
+            note=(
+                "Major NGL fractionation complex on the Anzoátegui coast; "
+                "outputs ethane, propane, butane and natural gasoline. "
+                "Anchor demand point on the Anaco–Jose trunk."
+            ),
+            extra_props={"capacity_note": "fractionation ~200 Mb/d (per OPEC ASB)"},
+        ),
+        _plant(
+            "ven-cmp-santa-barbara",
+            name="Santa Bárbara Compression",
+            name_es="Planta de Compresión Santa Bárbara",
+            plant_type="compression",
+            coords=(9.66, -63.59),
+            operator="PDVSA Gas",
+            note=(
+                "Compression along the Anaco–Puerto Ordaz corridor; "
+                "Monagas state. World Bank GGFR identifies Santa Bárbara as "
+                "a major flaring node — useful ground-truth signal for "
+                "downstream VIIRS validation."
+            ),
+            extra_props={"ggfr_top_flaring_site": True},
+            sources=[
+                _src_academia(now),
+                SourceRef(
+                    source_name="World Bank GGFR",
+                    note="Global Gas Flaring Reduction Partnership — facility-level annual data",
+                    url="https://www.worldbank.org/en/programs/gasflaringreduction",
+                    retrieved_at=now,
+                ),
+            ],
+        ),
+        _plant(
+            "ven-cmp-altagracia",
+            name="Altagracia Compression",
+            name_es="Planta de Compresión Altagracia",
+            plant_type="compression",
+            coords=(9.87, -66.38),
+            operator="PDVSA Gas",
+            note=(
+                "Mid-trunk compression on the ABRS east trunk + the Anaco–"
+                "Caracas branch; intersection with the Yucal-Placer feeder."
+            ),
+        ),
+        _plant(
+            "ven-cmp-maracay",
+            name="Maracay Compression",
+            name_es="Planta de Compresión Maracay",
+            plant_type="compression",
+            coords=(10.25, -67.60),
+            operator="PDVSA Gas",
+            note="Aragua-state booster on the ABRS east trunk between Altagracia and Morón.",
+        ),
+        _plant(
+            "ven-cmp-moron",
+            name="Morón Compression",
+            name_es="Planta de Compresión Morón",
+            plant_type="compression",
+            coords=(10.49, -68.21),
+            operator="PDVSA Gas",
+            note=(
+                "Major ABRS junction on the Carabobo coast; splits flow north "
+                "(Falcón coastal branch → Río Seco / CRP) and west (Yaritagua "
+                "→ Barquisimeto)."
+            ),
+            extra_props={"role": "ABRS junction"},
+        ),
+        _plant(
+            "ven-cgp-ule",
+            name="Ulé Gas Processing Complex",
+            name_es="Complejo de Procesamiento de Gas Ulé",
+            plant_type="processing",
+            coords=(10.45, -71.65),
+            operator="PDVSA Gas",
+            note=(
+                "Anchor processing complex for the Lake Maracaibo basin; "
+                "head-end of the Ulé–Amuay trunk to the Paraguaná refining "
+                "complex (CRP). Receives subsea gathering from LAMARGAS / "
+                "UNIGAS / CEUTAGAS systems."
+            ),
+            extra_props={"role": "western hub"},
+        ),
+        _plant(
+            "ven-rgt-amuay",
+            name="Amuay Refinery Gas Treatment (CRP)",
+            name_es="Tratamiento de Gas Refinería Amuay (CRP)",
+            plant_type="refinery_gas_treatment",
+            coords=(11.75, -70.21),
+            operator="PDVSA Refinación",
+            note=(
+                "Fuel-gas and off-gas treatment within the Amuay leg of the "
+                "Centro Refinador Paraguaná (CRP). Terminal demand point on "
+                "the Ulé–Amuay system."
+            ),
+        ),
+        _plant(
+            "ven-cgp-cigma-guiria",
+            name="CIGMA / Güiria Onshore Complex",
+            name_es="Complejo CIGMA — Güiria",
+            plant_type="processing",
+            coords=(10.57, -62.30),
+            operator="PDVSA / partners (license-dependent)",
+            status="proposed",
+            note=(
+                "Planned onshore processing complex at Güiria (CIGMA, "
+                "Complejo Industrial Gran Mariscal de Ayacucho) for the four "
+                "Mariscal Sucre offshore fields (Dragon, Patao, Mejillones, "
+                "Río Caribe). Includes a planned LNG monetization branch; "
+                "subject to OFAC licensing."
+            ),
+            sources=[
+                _src_academia(now, "Proyecto Mariscal Sucre / CIGMA"),
+                _src_pdvsa(now, projects=True),
+                SourceRef(
+                    source_name="UCV thesis (Recursos y Reservas)",
+                    note="Saber UCV — Mariscal Sucre / Plataforma Deltana",
+                    url=UCV_THESIS,
+                    retrieved_at=now,
+                ),
+            ],
+        ),
+    ]
+
+
+def run(db: Session) -> tuple[int, int, int]:
     pipelines = _pipeline_records()
     for rec in pipelines:
         upsert_pipeline(db, rec)
     fields = _gas_field_records()
     for rec in fields:
         upsert_gas_field(db, rec)
+    plants = _processing_plant_records()
+    for rec in plants:
+        upsert_processing_plant(db, rec)
     db.commit()
-    return len(pipelines), len(fields)
+    return len(pipelines), len(fields), len(plants)
 
 
 def main() -> int:
     db = SessionLocal()
     try:
-        n_pipes, n_fields = run(db)
+        n_pipes, n_fields, n_plants = run(db)
     finally:
         db.close()
-    msg = f"manual_seed: upserted {n_pipes} pipelines, {n_fields} gas fields"
+    msg = (
+        f"manual_seed: upserted {n_pipes} pipelines, {n_fields} gas fields, "
+        f"{n_plants} processing/compression plants"
+    )
     logger.info(msg)
     print(msg)
     return 0

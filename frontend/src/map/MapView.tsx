@@ -4,6 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { LayerRegistry, type OnSelect } from "./LayerRegistry";
 import { pipelinesLayer } from "./layers/pipelines";
 import { gasFieldsLayer } from "./layers/gas-fields";
+import { processingPlantsLayer } from "./layers/processing-plants";
 import { flareEventsLayer } from "./layers/flare-events";
 import { installVenezuelaFocus } from "./venezuela-focus";
 
@@ -48,11 +49,13 @@ export default function MapView({ onSelect, onRegistryReady }: Props) {
       await installVenezuelaFocus(map);
 
       // Order matters: flare heatmap underneath, then pipelines, then gas
-      // fields and flare points on top so their click handlers take priority.
+      // fields, then plants on top (plants are big "infrastructure of
+      // interest" markers — keep clicks prioritized for them over fields).
       const registry = new LayerRegistry(map, [
         flareEventsLayer,
         pipelinesLayer,
         gasFieldsLayer,
+        processingPlantsLayer,
       ]);
       await registry.installAll({ onSelect });
       onRegistryReady?.(registry);

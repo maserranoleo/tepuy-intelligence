@@ -30,6 +30,10 @@ export type GasFieldProperties = EntityCommon & {
   operator?: string | null;
 };
 
+export type ProcessingPlantProperties = EntityCommon & {
+  operator?: string | null;
+};
+
 export type PipelineFeature = {
   type: "Feature";
   geometry:
@@ -52,6 +56,17 @@ export type GasFieldFeature = {
 export type GasFieldFeatureCollection = {
   type: "FeatureCollection";
   features: GasFieldFeature[];
+};
+
+export type ProcessingPlantFeature = {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: [number, number] };
+  properties: ProcessingPlantProperties;
+};
+
+export type ProcessingPlantFeatureCollection = {
+  type: "FeatureCollection";
+  features: ProcessingPlantFeature[];
 };
 
 export type FlareEventProperties = {
@@ -84,4 +99,5 @@ export type FlareEventFeatureCollection = {
 export type SelectedEntity =
   | { kind: "pipeline"; props: PipelineProperties }
   | { kind: "gas_field"; props: GasFieldProperties }
+  | { kind: "processing_plant"; props: ProcessingPlantProperties }
   | { kind: "flare_event"; props: FlareEventProperties };

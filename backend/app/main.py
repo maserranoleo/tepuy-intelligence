@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.flare_events import router as flare_events_router
 from app.api.gas_fields import router as gas_fields_router
 from app.api.pipelines import router as pipelines_router
+from app.api.processing_plants import router as processing_plants_router
 from app.config import settings
 
 logging.basicConfig(
@@ -31,4 +32,5 @@ def healthz() -> dict[str, bool]:
 
 app.include_router(pipelines_router)
 app.include_router(gas_fields_router)
+app.include_router(processing_plants_router)
 app.include_router(flare_events_router)

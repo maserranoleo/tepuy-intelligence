@@ -3,6 +3,7 @@ import type {
   FlareEventProperties,
   GasFieldProperties,
   PipelineProperties,
+  ProcessingPlantProperties,
   SelectedEntity,
   Source,
 } from "@/types/geojson";
@@ -24,7 +25,15 @@ const STATUS_BADGE: Record<string, string> = {
 const KIND_LABEL: Record<SelectedEntity["kind"], string> = {
   pipeline: "Pipeline",
   gas_field: "Gas Field",
+  processing_plant: "Processing Plant",
   flare_event: "Flare Detection",
+};
+
+const PLANT_TYPE_LABEL: Record<string, string> = {
+  compression: "Compression",
+  processing: "Gas Processing",
+  cryogenic: "Cryogenic / NGL",
+  refinery_gas_treatment: "Refinery Gas Treatment",
 };
 
 function formatNumber(n: number | null | undefined, suffix: string): string | null {
@@ -75,6 +84,11 @@ export default function DetailPanel({ selected, onClose }: Props) {
 
       {selected.kind === "pipeline" ? (
         <PipelineFields p={props as PipelineProperties} />
+      ) : selected.kind === "processing_plant" ? (
+        <ProcessingPlantFields
+          p={props as ProcessingPlantProperties}
+          extra={extra}
+        />
       ) : (
         <GasFieldFields p={props as GasFieldProperties} extra={extra} />
       )}
@@ -213,6 +227,32 @@ function PipelineFields({ p }: { p: PipelineProperties }) {
       <Field label="Diameter" value={formatNumber(p.diameter_in, "in")} />
       <Field label="Capacity" value={formatNumber(p.capacity_mmcfd, "mmcfd")} />
       <Field label="Operator" value={p.operator ?? null} />
+    </dl>
+  );
+}
+
+function ProcessingPlantFields({
+  p,
+  extra,
+}: {
+  p: ProcessingPlantProperties;
+  extra: Record<string, unknown>;
+}) {
+  const plantTypeKey =
+    typeof extra.plant_type === "string" ? (extra.plant_type as string) : null;
+  const plantType = plantTypeKey
+    ? PLANT_TYPE_LABEL[plantTypeKey] ?? plantTypeKey
+    : null;
+  const role = typeof extra.role === "string" ? (extra.role as string) : null;
+  const capacityNote =
+    typeof extra.capacity_note === "string" ? (extra.capacity_note as string) : null;
+
+  return (
+    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+      <Field label="Plant Type" value={plantType} />
+      <Field label="Operator" value={p.operator ?? null} />
+      <Field label="Role" value={role} />
+      <Field label="Capacity" value={capacityNote} />
     </dl>
   );
 }
