@@ -39,8 +39,10 @@ migrate:
 seed:
 	PYTHONPATH=backend:. $(PY) -m data_pipeline.sources.manual_seed.load
 
+API_PORT ?= 8001
+
 api:
-	cd backend && PYTHONPATH=..:. ../$(UVICORN) app.main:app --reload --host 127.0.0.1 --port 8000
+	cd backend && PYTHONPATH=..:. ../$(UVICORN) app.main:app --reload --host 127.0.0.1 --port $(API_PORT)
 
 ingest-gem:
 	@test -n "$(FILE)" || (echo "Usage: make ingest-gem FILE=path/to/ggit.xlsx" && exit 1)

@@ -81,7 +81,7 @@ def upgrade() -> None:
         "ix_pipelines_external_ids_gem",
         "pipelines",
         ["external_ids"],
-        postgresql_using="btree",
+        postgresql_using="gin",
         postgresql_ops={"external_ids": "jsonb_path_ops"},
     )
 
