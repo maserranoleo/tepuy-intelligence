@@ -5,6 +5,7 @@ import { LayerRegistry, type OnSelect } from "./LayerRegistry";
 import { pipelinesLayer } from "./layers/pipelines";
 import { gasFieldsLayer } from "./layers/gas-fields";
 import { flareEventsLayer } from "./layers/flare-events";
+import { installVenezuelaFocus } from "./venezuela-focus";
 
 const VEN_BOUNDS: [[number, number], [number, number]] = [
   [-73.5, 0.5],
@@ -41,6 +42,11 @@ export default function MapView({ onSelect, onRegistryReady }: Props) {
     );
 
     map.on("load", async () => {
+      // Country-focus mask FIRST, so it sits between basemap and data layers.
+      // The mask dims the basemap (and basemap labels) outside Venezuela;
+      // data layers added afterwards stay at full brightness.
+      await installVenezuelaFocus(map);
+
       // Order matters: flare heatmap underneath, then pipelines, then gas
       // fields and flare points on top so their click handlers take priority.
       const registry = new LayerRegistry(map, [

@@ -1,0 +1,66 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "iso_a3": "VEN",
+        "name": "Venezuela",
+        "name_es": "República Bolivariana de Venezuela",
+        "fidelity": "approximate",
+        "fidelity_note": "Hand-traced ~40-vertex polygon for use as a country-focus mask at zoom 4-9. NOT survey-grade. To upgrade, replace with a Natural Earth admin-0 simplified polygon (e.g. ne_50m_admin_0_countries) extracted for VEN. The mask reads only the first feature's outer ring; structure must be a single Polygon."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-71.95, 12.00],
+            [-71.30, 11.50],
+            [-70.80, 11.45],
+            [-70.20, 11.95],
+            [-69.80, 11.55],
+            [-69.50, 11.10],
+            [-68.50, 10.95],
+            [-67.50, 10.65],
+            [-66.90, 10.60],
+            [-66.00, 10.55],
+            [-65.20, 10.45],
+            [-64.30, 10.50],
+            [-63.50, 10.70],
+            [-62.50, 10.65],
+            [-61.95, 10.70],
+            [-61.55, 10.10],
+            [-61.20, 9.40],
+            [-60.50, 9.20],
+            [-60.00, 8.55],
+            [-60.20, 7.80],
+            [-60.55, 6.80],
+            [-60.75, 5.85],
+            [-60.75, 5.17],
+            [-61.50, 4.50],
+            [-62.50, 4.00],
+            [-63.50, 3.80],
+            [-64.50, 3.20],
+            [-65.40, 1.80],
+            [-66.40, 1.20],
+            [-67.07, 1.75],
+            [-67.40, 2.50],
+            [-67.80, 4.00],
+            [-67.90, 5.50],
+            [-69.00, 6.20],
+            [-70.00, 6.50],
+            [-70.80, 6.95],
+            [-71.50, 7.10],
+            [-72.20, 7.50],
+            [-72.45, 8.40],
+            [-72.70, 9.30],
+            [-72.85, 10.00],
+            [-72.50, 10.80],
+            [-72.10, 11.30],
+            [-71.95, 12.00]
+          ]
+        ]
+      }
+    }
+  ]
+}
