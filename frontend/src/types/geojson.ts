@@ -54,7 +54,34 @@ export type GasFieldFeatureCollection = {
   features: GasFieldFeature[];
 };
 
+export type FlareEventProperties = {
+  id: string;
+  acquired_at: string;
+  satellite?: string | null;
+  instrument?: string | null;
+  confidence?: string | null;
+  daynight?: string | null;
+  brightness_ti4?: number | null;
+  brightness_ti5?: number | null;
+  frp?: number | null;
+  source_name: string;
+  external_id: string;
+  sources: Source[];
+};
+
+export type FlareEventFeature = {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: [number, number] };
+  properties: FlareEventProperties;
+};
+
+export type FlareEventFeatureCollection = {
+  type: "FeatureCollection";
+  features: FlareEventFeature[];
+};
+
 /** Discriminated union for whatever the user clicked on. */
 export type SelectedEntity =
   | { kind: "pipeline"; props: PipelineProperties }
-  | { kind: "gas_field"; props: GasFieldProperties };
+  | { kind: "gas_field"; props: GasFieldProperties }
+  | { kind: "flare_event"; props: FlareEventProperties };

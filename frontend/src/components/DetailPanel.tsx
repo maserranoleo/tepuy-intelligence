@@ -1,5 +1,6 @@
 import type {
   EntityCommon,
+  FlareEventProperties,
   GasFieldProperties,
   PipelineProperties,
   SelectedEntity,
@@ -23,6 +24,7 @@ const STATUS_BADGE: Record<string, string> = {
 const KIND_LABEL: Record<SelectedEntity["kind"], string> = {
   pipeline: "Pipeline",
   gas_field: "Gas Field",
+  flare_event: "Flare Detection",
 };
 
 function formatNumber(n: number | null | undefined, suffix: string): string | null {
@@ -51,6 +53,10 @@ function parseMaybe<T>(v: unknown): T | null {
 export default function DetailPanel({ selected, onClose }: Props) {
   if (!selected) return null;
 
+  if (selected.kind === "flare_event") {
+    return <FlareDetailPanel p={selected.props} onClose={onClose} />;
+  }
+
   const props = selected.props;
   const sources = ensureArray(parseMaybe<Source[]>(props.sources));
   const aliases = ensureArray(parseMaybe<string[]>(props.aliases));
@@ -76,6 +82,72 @@ export default function DetailPanel({ selected, onClose }: Props) {
       <NoteBlock extra={extra} />
       <SourcesList sources={sources} />
       <ExternalIdsList externalIds={externalIds} />
+    </aside>
+  );
+}
+
+function FlareDetailPanel({
+  p,
+  onClose,
+}: {
+  p: FlareEventProperties;
+  onClose: () => void;
+}) {
+  const sources = ensureArray(parseMaybe<Source[]>(p.sources));
+  const acquired = new Date(p.acquired_at);
+
+  return (
+    <aside className="absolute top-0 right-0 z-20 h-full w-[380px] max-w-[90vw] overflow-y-auto border-l border-neutral-800 bg-neutral-950/95 p-5 backdrop-blur">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-wider text-neutral-500">
+            {KIND_LABEL.flare_event}
+          </div>
+          <h2 className="mt-1 text-lg font-semibold leading-tight">
+            {acquired.toISOString().replace("T", " ").slice(0, 16)} UTC
+          </h2>
+          <div className="mt-0.5 text-xs text-neutral-500">
+            {p.satellite ?? "—"} · {p.instrument ?? "—"}
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded border border-neutral-800 px-2 py-1 text-xs text-neutral-400 hover:border-neutral-600 hover:text-neutral-200"
+          aria-label="Close detail panel"
+        >
+          ✕
+        </button>
+      </div>
+
+      <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <Field
+          label="FRP"
+          value={formatNumber(p.frp, "MW")}
+        />
+        <Field
+          label="Confidence"
+          value={p.confidence ?? null}
+        />
+        <Field
+          label="Day / Night"
+          value={p.daynight === "N" ? "Night" : p.daynight === "D" ? "Day" : null}
+        />
+        <Field label="Bright TI4" value={formatNumber(p.brightness_ti4, "K")} />
+      </dl>
+
+      <div className="mt-5 border-t border-neutral-800 pt-4 text-sm text-neutral-400 leading-snug">
+        Single satellite detection — could be a gas flare or a wildfire. Flares
+        show <span className="text-neutral-200">at the same coordinates day after day</span>;
+        wildfires move. Use the date range and the heat-map view to judge
+        persistence.
+      </div>
+
+      <SourcesList sources={sources} />
+
+      <div className="mt-5 border-t border-neutral-800 pt-4 text-xs text-neutral-500 font-mono">
+        <div className="uppercase tracking-wider font-sans">Detection ID</div>
+        <div className="mt-1 break-all text-neutral-300">{p.external_id}</div>
+      </div>
     </aside>
   );
 }

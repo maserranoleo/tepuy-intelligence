@@ -4,7 +4,7 @@ import DetailPanel from "./components/DetailPanel";
 import type { LayerRegistry } from "./map/LayerRegistry";
 import type { SelectedEntity } from "@/types/geojson";
 
-type LayerKey = "pipelines" | "gas_fields";
+type LayerKey = "pipelines" | "gas_fields" | "flare_events";
 
 export default function App() {
   const [selected, setSelected] = useState<SelectedEntity | null>(null);
@@ -12,6 +12,7 @@ export default function App() {
   const [visibility, setVisibilityState] = useState<Record<LayerKey, boolean>>({
     pipelines: true,
     gas_fields: true,
+    flare_events: true,
   });
 
   const onSelect = useCallback((sel: SelectedEntity) => setSelected(sel), []);
@@ -58,6 +59,11 @@ const GAS_FIELD_STATUSES: StatusItem[] = [
   { label: "Idle", color: "#64748b" },
 ];
 
+const FLARE_KINDS: StatusItem[] = [
+  { label: "Night detection", color: "#ff6b35" },
+  { label: "Day detection", color: "#fbbf24" },
+];
+
 function LayerPanel({
   visibility,
   onToggle,
@@ -82,6 +88,14 @@ function LayerPanel({
           onChange={(v) => onToggle("gas_fields", v)}
         >
           <CircleSwatches items={GAS_FIELD_STATUSES} />
+        </LayerToggleRow>
+        <LayerToggleRow
+          label="Flare Detections (VIIRS · 14d)"
+          checked={visibility.flare_events}
+          onChange={(v) => onToggle("flare_events", v)}
+        >
+          <CircleSwatches items={FLARE_KINDS} />
+          <span className="text-neutral-500">heatmap below z9 · points above</span>
         </LayerToggleRow>
       </div>
     </div>

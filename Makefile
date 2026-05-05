@@ -17,14 +17,15 @@ UVICORN    ?= $(VENV)/bin/uvicorn
 
 help:
 	@echo "Common tasks:"
-	@echo "  make install        Create venv and install backend + ingest deps"
-	@echo "  make migrate        Run Alembic migrations against \$$DATABASE_URL"
-	@echo "  make seed           Load the manual_seed pipelines"
-	@echo "  make api            Run the FastAPI server (auto-reload)"
+	@echo "  make install              Create venv and install backend + ingest deps"
+	@echo "  make migrate              Run Alembic migrations against \$$DATABASE_URL"
+	@echo "  make seed                 Load the manual_seed pipelines + gas fields"
+	@echo "  make api                  Run the FastAPI server (auto-reload)"
 	@echo "  make ingest-gem FILE=path/to/ggit.xlsx"
+	@echo "  make ingest-firms [DAYS=7] [SOURCE=VIIRS_SNPP_NRT]"
 	@echo "  make typecheck-front"
-	@echo "  make build-front    Production build"
-	@echo "  make clean          Remove venv + node_modules"
+	@echo "  make build-front          Production build"
+	@echo "  make clean                Remove venv + node_modules"
 
 install:
 	test -d $(VENV) || python3.12 -m venv $(VENV)
@@ -44,6 +45,12 @@ api:
 ingest-gem:
 	@test -n "$(FILE)" || (echo "Usage: make ingest-gem FILE=path/to/ggit.xlsx" && exit 1)
 	PYTHONPATH=backend:. $(PY) -m data_pipeline.sources.gem.load "$(FILE)"
+
+ingest-firms:
+	@test -n "$$NASA_FIRMS_MAP_KEY" || (echo "NASA_FIRMS_MAP_KEY is not set in .env" && exit 1)
+	PYTHONPATH=backend:. $(PY) -m data_pipeline.sources.firms.load \
+		--days $${DAYS:-7} \
+		--source $${SOURCE:-VIIRS_SNPP_NRT}
 
 typecheck-front:
 	cd frontend && npx tsc --noEmit

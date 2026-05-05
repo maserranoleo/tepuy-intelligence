@@ -3,12 +3,16 @@
 The operational picture of Venezuela's natural gas system. v1 ships:
 
 - A map of Venezuela (MapLibre + open basemap, fit to country bounds).
-- A pipelines layer color-coded by status, click-to-detail with source attribution.
+- Three pluggable layers, each toggleable:
+  - **Gas Pipelines** — color-coded by status, click-to-detail, source attribution.
+  - **Gas Fields** — point markers for fields like Perla, Dragon, Loran-Manatee.
+  - **Flare Detections (VIIRS, last 14 days)** — heatmap + clickable points
+    fed by NASA FIRMS satellite hotspots.
 - A FastAPI backend serving GeoJSON from PostGIS.
-- An ingestion path for Global Energy Monitor's [Global Gas Infrastructure
-  Tracker](https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/),
-  filtered to Venezuela + cross-border (Colombia, Trinidad).
-- A small `manual_seed` source so the app has real, sourced data on first boot.
+- Three ingestion paths:
+  - `manual_seed` — real, cited Venezuelan pipelines + gas fields (auto-runs).
+  - `gem` — Global Energy Monitor's [Global Gas Infrastructure Tracker](https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/) (manual file drop).
+  - `firms` — NASA FIRMS daily VIIRS active-fire detections (free API).
 
 Public-facing, no auth.
 
@@ -49,6 +53,33 @@ interconnector, the Perla field tie-in, and the proposed Dragon–Hibiscus
 VEN↔TT crossing. Each row carries source attribution and a
 `geometry_quality: approximate_endpoints` flag — they are real entities, not
 survey-grade traces.
+
+## Ingest FIRMS (NASA satellite hotspots)
+
+Free, fast, no file drop required. One-time setup:
+
+1. Get a MAP_KEY (free, email-gated, arrives in seconds):
+   <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
+2. Add to `.env`: `NASA_FIRMS_MAP_KEY=<your-key>`
+3. Pull the last 7 days of VIIRS detections over Venezuela:
+
+   ```bash
+   make ingest-firms              # default: VIIRS_SNPP_NRT, last 7 days
+   make ingest-firms DAYS=10
+   make ingest-firms SOURCE=VIIRS_NOAA20_NRT DAYS=5
+   ```
+
+Each detection is one satellite hotspot — could be a gas flare or a wildfire.
+The analyst-grade signal is **persistence**: a thermal anomaly that shows up
+at the same coordinates day after day is almost certainly a gas flare. The
+heatmap surfaces this density at country zoom; individual points become
+clickable above zoom 6.
+
+Idempotent — re-running on overlapping windows is safe (deduplicated by a
+SHA1 of `(satellite, date, time, lat, lon)`).
+
+See [`data_pipeline/sources/firms/README.md`](data_pipeline/sources/firms/README.md)
+for full details.
 
 ## Ingest GEM (Global Gas Infrastructure Tracker)
 
