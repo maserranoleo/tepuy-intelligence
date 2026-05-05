@@ -47,12 +47,48 @@ Open [http://localhost:5173](http://localhost:5173) and click any pipeline.
 
 ### What you'll see on first boot
 
-Six hand-curated, publicly-sourced Venezuelan pipelines: Anaco–Caracas,
-Anaco–Puerto Ordaz, Anaco–Barquisimeto (ICO), the Antonio Ricaurte VEN↔CO
-interconnector, the Perla field tie-in, and the proposed Dragon–Hibiscus
-VEN↔TT crossing. Each row carries source attribution and a
-`geometry_quality: approximate_endpoints` flag — they are real entities, not
-survey-grade traces.
+**13 documented Venezuelan gas trunk pipelines** seeded from publicly cited
+sources, plus **3 gas fields** (Perla, Dragon, Loran-Manatee).
+
+Pipeline coverage follows the Academia Nacional de la Ingeniería (2009)
+classification of the major national transmission systems:
+
+| System | Coverage |
+|---|---|
+| **ABRS east trunk** | Anaco → Altagracia → Maracay → Morón → Yaritagua → Barquisimeto. ~550 km, 4 parallel ~36" lines, ~970 MMcf/d aggregate (per Academia Nacional 2009). |
+| **ABRS Falcón coastal branch** | Morón → Coro → Río Seco. |
+| **Anaco–Caracas** | Eastern trunk to the capital via Altagracia. |
+| **Anaco–Puerto Ordaz** | South to industrial Guayana via Soto + Santa Bárbara. |
+| **Anaco–Jose–Puerto La Cruz** | East to José cryogenic complex + PLC industrial coast. |
+| **Sistema Ulé–Amuay** | Lake Maracaibo basin → Paraguaná refining (CRP). |
+| **Yucal-Placer feeder** | Guárico non-associated gas → ABRS at Altagracia. |
+| **Centro-Sur extension** | Barquisimeto → Acarigua → Guanare → Barinas (Llanos demand). |
+| **Mariscal Sucre offshore tie-in** | Dragon → Güiria (CIGMA), proposed. |
+| **Maracaibo Lake feeder** | Bachaquero/TJL → Ulé (representative of LAMARGAS / UNIGAS / CEUTAGAS subsea network). |
+| **Antonio Ricaurte (cross-border)** | Ballena, CO ↔ Maracaibo (idle). |
+| **Perla / Cardón IV onshore** | Offshore tie-in to Punto Fijo. |
+| **Dragon–Hibiscus (cross-border, proposed)** | Cross-border to Trinidad LNG; OFAC-bound. |
+
+Routes pass through **real, named intermediate cities** (Altagracia de
+Orituco, Morón, Yaritagua, Coro, Ulé, José, Güiria…) — not surveyed pipe
+paths. Every row is tagged `properties.geometry_quality =
+"documented_route_approximate"` so the analyst sees the disclosure.
+
+Each row cites at least one of:
+- **Academia Nacional de la Ingeniería (2009)** — *La Industria del Gas
+  Natural en Venezuela* (the canonical academic reference).
+- **EIA Venezuela Country Analysis Brief** (Feb 2024).
+- **GEM-GGIT wiki** per asset (where the asset has its own page).
+- **PDVSA Gas** operator pages (caveat: not substantively updated since ~2017).
+
+### Upgrade path: GEM GGIT shapefile
+
+The `gem` ingestion source (`make ingest-gem FILE=...`) reads Global Energy
+Monitor's Global Gas Infrastructure Tracker shapefile, which carries
+**higher-fidelity geometry** for the same systems. GGIT rows live in
+distinct database rows (`external_ids.gem` vs `external_ids.manual_seed`)
+— they don't auto-merge in v1, so the analyst sees both and judges the
+disagreement. See `data_pipeline/sources/gem/README.md`.
 
 ## Ingest FIRMS (NASA satellite hotspots)
 
