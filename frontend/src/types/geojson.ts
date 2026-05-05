@@ -6,6 +6,16 @@ export type Source = {
   note?: string | null;
 };
 
+export type SanctionsMatch = {
+  ent_num: number;
+  matched_name: string;
+  sdn_type?: string | null;
+  programs: string[];
+  matched_tokens: string[];
+  venezuela_program: boolean;
+  ofac_url: string;
+};
+
 /** Shared properties present on every entity, regardless of geometry type. */
 export type EntityCommon = {
   id: string;
@@ -17,6 +27,9 @@ export type EntityCommon = {
   properties: Record<string, unknown>;
   external_ids: Record<string, string>;
   sources: Source[];
+  /** Potential OFAC SDN matches against this entity's operator string.
+   *  Empty when the SDN list hasn't been ingested or the operator is null. */
+  sanctions: SanctionsMatch[];
 };
 
 export type PipelineProperties = EntityCommon & {

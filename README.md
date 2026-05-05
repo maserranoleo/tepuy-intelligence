@@ -11,11 +11,16 @@ The operational picture of Venezuela's natural gas system. v1 ships:
     compression, Amuay (CRP) gas treatment, CIGMA (proposed).
   - **Flare Detections (VIIRS, last 14 days)** — heatmap + clickable points
     fed by NASA FIRMS satellite hotspots.
+- **OFAC SDN matching on operators.** Every entity row is matched against
+  the U.S. Treasury Specially Designated Nationals list at API request
+  time; potential matches surface as a red badge in the detail panel with
+  a direct link to the OFAC entry.
 - A FastAPI backend serving GeoJSON from PostGIS.
-- Three ingestion paths:
+- Four ingestion paths:
   - `manual_seed` — real, cited Venezuelan pipelines + gas fields (auto-runs).
   - `gem` — Global Energy Monitor's [Global Gas Infrastructure Tracker](https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/) (manual file drop).
   - `firms` — NASA FIRMS daily VIIRS active-fire detections (free API).
+  - `ofac` — U.S. Treasury OFAC SDN list (free CSV).
 
 Public-facing, no auth.
 
@@ -118,6 +123,31 @@ Idempotent — re-running on overlapping windows is safe (deduplicated by a
 SHA1 of `(satellite, date, time, lat, lon)`).
 
 See [`data_pipeline/sources/firms/README.md`](data_pipeline/sources/firms/README.md)
+for full details.
+
+## Ingest OFAC SDN list (sanctions screening)
+
+Free, no key. The matcher reads from the `sanctions_entries` table at API
+request time; if you don't ingest, every entity simply has empty `sanctions`.
+
+```bash
+make ingest-ofac                                # default URL
+make ingest-ofac FILE=path/to/SDN.CSV           # parse a local download
+```
+
+After the first ingest, click any entity whose operator includes "PDVSA"
+(most pipelines, fields, and plants in the seed) — the detail panel shows
+a red **⚠ OFAC · VEN** badge in the header and a "Sanctions exposure"
+block listing the matches with direct links to the OFAC entry.
+
+The matcher is intentionally simple (word-boundary token matching against
+normalized SDN names, with a stoplist for generic energy terms). It
+produces *candidates*, not legal determinations — the UI labels matches
+as "Potential SDN match" and links to OFAC for verification. Aliases
+(OFAC's `alt.csv`) are not yet ingested; primary names catch the most
+common operator strings (PDVSA, CITGO, etc.).
+
+See [`data_pipeline/sources/ofac/README.md`](data_pipeline/sources/ofac/README.md)
 for full details.
 
 ## Ingest GEM (Global Gas Infrastructure Tracker)

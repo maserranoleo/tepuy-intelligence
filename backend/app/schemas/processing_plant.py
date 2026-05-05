@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.pipeline import Source
+from app.schemas.sanctions import SanctionsMatch
 
 
 class ProcessingPlantProperties(BaseModel):
@@ -23,6 +24,7 @@ class ProcessingPlantProperties(BaseModel):
     properties: dict[str, Any] = Field(default_factory=dict)
     external_ids: dict[str, str] = Field(default_factory=dict)
     sources: list[Source] = Field(default_factory=list)
+    sanctions: list[SanctionsMatch] = Field(default_factory=list)
 
 
 class ProcessingPlantFeature(BaseModel):

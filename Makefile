@@ -23,6 +23,7 @@ help:
 	@echo "  make api                  Run the FastAPI server (auto-reload)"
 	@echo "  make ingest-gem FILE=path/to/ggit.xlsx"
 	@echo "  make ingest-firms [DAYS=7] [SOURCE=VIIRS_SNPP_NRT]"
+	@echo "  make ingest-ofac  [URL=<override>] [FILE=path/to/SDN.CSV]"
 	@echo "  make typecheck-front"
 	@echo "  make build-front          Production build"
 	@echo "  make clean                Remove venv + node_modules"
@@ -53,6 +54,11 @@ ingest-firms:
 	PYTHONPATH=backend:. $(PY) -m data_pipeline.sources.firms.load \
 		--days $${DAYS:-7} \
 		--source $${SOURCE:-VIIRS_SNPP_NRT}
+
+ingest-ofac:
+	PYTHONPATH=backend:. $(PY) -m data_pipeline.sources.ofac.load \
+		$(if $(URL),--url $(URL)) \
+		$(if $(FILE),--file $(FILE))
 
 typecheck-front:
 	cd frontend && npx tsc --noEmit

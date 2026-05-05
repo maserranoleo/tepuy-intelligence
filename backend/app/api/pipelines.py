@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models.pipeline import Pipeline
+from app.sanctions.dependency import get_matcher
+from app.sanctions.matcher import SanctionsMatcher
 from app.schemas.pipeline import (
     PipelineFeature,
     PipelineFeatureCollection,
@@ -16,7 +18,9 @@ from app.schemas.pipeline import (
 router = APIRouter(prefix="/api/pipelines", tags=["pipelines"])
 
 
-def _row_to_feature(row: Pipeline, geojson: str) -> PipelineFeature:
+def _row_to_feature(
+    row: Pipeline, geojson: str, matcher: SanctionsMatcher
+) -> PipelineFeature:
     return PipelineFeature(
         geometry=json.loads(geojson),
         properties=PipelineProperties(
@@ -33,19 +37,30 @@ def _row_to_feature(row: Pipeline, geojson: str) -> PipelineFeature:
             properties=row.properties or {},
             external_ids=row.external_ids or {},
             sources=row.sources or [],
+            sanctions=[m.to_jsonable() for m in matcher.match(row.operator)],
         ),
     )
 
 
 @router.get("", response_model=PipelineFeatureCollection)
-def list_pipelines(db: Session = Depends(get_db)) -> PipelineFeatureCollection:
+def list_pipelines(
+    db: Session = Depends(get_db),
+    matcher: SanctionsMatcher = Depends(get_matcher),
+) -> PipelineFeatureCollection:
     stmt = select(Pipeline, func.ST_AsGeoJSON(Pipeline.geometry)).order_by(Pipeline.name)
-    features = [_row_to_feature(row, geojson) for row, geojson in db.execute(stmt).all()]
+    features = [
+        _row_to_feature(row, geojson, matcher)
+        for row, geojson in db.execute(stmt).all()
+    ]
     return PipelineFeatureCollection(features=features)
 
 
 @router.get("/{pipeline_id}", response_model=PipelineFeature)
-def get_pipeline(pipeline_id: UUID, db: Session = Depends(get_db)) -> PipelineFeature:
+def get_pipeline(
+    pipeline_id: UUID,
+    db: Session = Depends(get_db),
+    matcher: SanctionsMatcher = Depends(get_matcher),
+) -> PipelineFeature:
     stmt = select(Pipeline, func.ST_AsGeoJSON(Pipeline.geometry)).where(
         Pipeline.id == pipeline_id
     )
@@ -53,4 +68,4 @@ def get_pipeline(pipeline_id: UUID, db: Session = Depends(get_db)) -> PipelineFe
     if result is None:
         raise HTTPException(status_code=404, detail="pipeline not found")
     row, geojson = result
-    return _row_to_feature(row, geojson)
+    return _row_to_feature(row, geojson, matcher)

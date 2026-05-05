@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.sanctions import SanctionsMatch
+
 
 class Source(BaseModel):
     source_name: str
@@ -31,6 +33,7 @@ class PipelineProperties(BaseModel):
     properties: dict[str, Any] = Field(default_factory=dict)
     external_ids: dict[str, str] = Field(default_factory=dict)
     sources: list[Source] = Field(default_factory=list)
+    sanctions: list[SanctionsMatch] = Field(default_factory=list)
 
 
 class PipelineFeature(BaseModel):

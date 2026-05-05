@@ -4,6 +4,7 @@ import type {
   GasFieldProperties,
   PipelineProperties,
   ProcessingPlantProperties,
+  SanctionsMatch,
   SelectedEntity,
   Source,
 } from "@/types/geojson";
@@ -68,6 +69,7 @@ export default function DetailPanel({ selected, onClose }: Props) {
 
   const props = selected.props;
   const sources = ensureArray(parseMaybe<Source[]>(props.sources));
+  const sanctions = ensureArray(parseMaybe<SanctionsMatch[]>(props.sanctions));
   const aliases = ensureArray(parseMaybe<string[]>(props.aliases));
   const externalIds =
     parseMaybe<Record<string, string>>(props.external_ids) ?? {};
@@ -79,6 +81,7 @@ export default function DetailPanel({ selected, onClose }: Props) {
         kindLabel={KIND_LABEL[selected.kind]}
         common={props}
         aliases={aliases}
+        sanctions={sanctions}
         onClose={onClose}
       />
 
@@ -94,6 +97,7 @@ export default function DetailPanel({ selected, onClose }: Props) {
       )}
 
       <NoteBlock extra={extra} />
+      <SanctionsBlock sanctions={sanctions} operator={props.operator ?? null} />
       <SourcesList sources={sources} />
       <ExternalIdsList externalIds={externalIds} />
     </aside>
@@ -170,15 +174,19 @@ function EntityHeader({
   kindLabel,
   common,
   aliases,
+  sanctions,
   onClose,
 }: {
   kindLabel: string;
   common: EntityCommon;
   aliases: string[];
+  sanctions: SanctionsMatch[];
   onClose: () => void;
 }) {
   const statusKey = (common.status || "unknown").toLowerCase();
   const badge = STATUS_BADGE[statusKey] ?? STATUS_BADGE.unknown;
+  const venezuelaHits = sanctions.filter((s) => s.venezuela_program).length;
+  const sanctionsLabel = venezuelaHits > 0 ? "OFAC · VEN" : "OFAC";
 
   return (
     <>
@@ -213,6 +221,14 @@ function EntityHeader({
         {common.status_as_of && (
           <span className="text-xs text-neutral-500">
             as of {new Date(common.status_as_of).toISOString().slice(0, 10)}
+          </span>
+        )}
+        {sanctions.length > 0 && (
+          <span
+            title={`${sanctions.length} potential SDN match${sanctions.length === 1 ? "" : "es"}`}
+            className="rounded border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-xs uppercase tracking-wider text-red-300"
+          >
+            ⚠ {sanctionsLabel} · {sanctions.length}
           </span>
         )}
       </div>
@@ -300,6 +316,86 @@ function NoteBlock({ extra }: { extra: Record<string, unknown> }) {
           Geometry: {extra.geometry_quality.replace(/_/g, " ")}
         </p>
       )}
+    </div>
+  );
+}
+
+function SanctionsBlock({
+  sanctions,
+  operator,
+}: {
+  sanctions: SanctionsMatch[];
+  operator: string | null;
+}) {
+  if (sanctions.length === 0) return null;
+
+  return (
+    <div className="mt-5 border-t border-red-900/40 pt-4">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-red-400">
+        <span>⚠ Sanctions exposure</span>
+      </div>
+      <p className="mt-1 text-xs text-neutral-500 leading-snug">
+        Potential OFAC SDN match{sanctions.length === 1 ? "" : "es"} for
+        operator{" "}
+        {operator ? (
+          <span className="text-neutral-300">"{operator}"</span>
+        ) : (
+          "this entity"
+        )}
+        . Candidate, not a legal determination — verify against the OFAC
+        entry below.
+      </p>
+      <ul className="mt-2 space-y-2 text-sm">
+        {sanctions.map((s) => (
+          <li
+            key={s.ent_num}
+            className={`rounded border px-2.5 py-2 ${
+              s.venezuela_program
+                ? "border-red-500/40 bg-red-500/10"
+                : "border-amber-500/30 bg-amber-500/10"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-medium text-neutral-100 leading-snug">
+                {s.matched_name}
+              </span>
+              <a
+                href={s.ofac_url}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 text-xs text-red-300 underline-offset-2 hover:underline"
+              >
+                OFAC ↗
+              </a>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400">
+              {s.sdn_type && (
+                <span className="rounded border border-neutral-700 px-1.5 py-0.5">
+                  {s.sdn_type}
+                </span>
+              )}
+              {s.programs.map((p) => (
+                <span
+                  key={p}
+                  className={`rounded border px-1.5 py-0.5 ${
+                    /VENEZUELA/i.test(p)
+                      ? "border-red-500/40 text-red-300"
+                      : "border-neutral-700 text-neutral-400"
+                  }`}
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+            <div className="mt-1 text-xs text-neutral-500">
+              matched on:{" "}
+              <span className="font-mono text-neutral-400">
+                {s.matched_tokens.join(", ")}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
