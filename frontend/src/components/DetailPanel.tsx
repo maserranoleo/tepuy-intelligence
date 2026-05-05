@@ -1,7 +1,13 @@
-import type { PipelineProperties, Source } from "@/types/geojson";
+import type {
+  EntityCommon,
+  GasFieldProperties,
+  PipelineProperties,
+  SelectedEntity,
+  Source,
+} from "@/types/geojson";
 
 type Props = {
-  selected: PipelineProperties | null;
+  selected: SelectedEntity | null;
   onClose: () => void;
 };
 
@@ -12,6 +18,11 @@ const STATUS_BADGE: Record<string, string> = {
   idle: "bg-slate-500/15 text-slate-400 border-slate-500/30",
   retired: "bg-slate-600/15 text-slate-500 border-slate-600/30",
   unknown: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
+};
+
+const KIND_LABEL: Record<SelectedEntity["kind"], string> = {
+  pipeline: "Pipeline",
+  gas_field: "Gas Field",
 };
 
 function formatNumber(n: number | null | undefined, suffix: string): string | null {
@@ -40,23 +51,59 @@ function parseMaybe<T>(v: unknown): T | null {
 export default function DetailPanel({ selected, onClose }: Props) {
   if (!selected) return null;
 
-  const sources = ensureArray(parseMaybe<Source[]>(selected.sources));
-  const aliases = ensureArray(parseMaybe<string[]>(selected.aliases));
+  const props = selected.props;
+  const sources = ensureArray(parseMaybe<Source[]>(props.sources));
+  const aliases = ensureArray(parseMaybe<string[]>(props.aliases));
   const externalIds =
-    parseMaybe<Record<string, string>>(selected.external_ids) ?? {};
-  const extra = parseMaybe<Record<string, unknown>>(selected.properties) ?? {};
-
-  const statusKey = (selected.status || "unknown").toLowerCase();
-  const badge = STATUS_BADGE[statusKey] ?? STATUS_BADGE.unknown;
+    parseMaybe<Record<string, string>>(props.external_ids) ?? {};
+  const extra = parseMaybe<Record<string, unknown>>(props.properties) ?? {};
 
   return (
     <aside className="absolute top-0 right-0 z-20 h-full w-[380px] max-w-[90vw] overflow-y-auto border-l border-neutral-800 bg-neutral-950/95 p-5 backdrop-blur">
+      <EntityHeader
+        kindLabel={KIND_LABEL[selected.kind]}
+        common={props}
+        aliases={aliases}
+        onClose={onClose}
+      />
+
+      {selected.kind === "pipeline" ? (
+        <PipelineFields p={props as PipelineProperties} />
+      ) : (
+        <GasFieldFields p={props as GasFieldProperties} extra={extra} />
+      )}
+
+      <NoteBlock extra={extra} />
+      <SourcesList sources={sources} />
+      <ExternalIdsList externalIds={externalIds} />
+    </aside>
+  );
+}
+
+function EntityHeader({
+  kindLabel,
+  common,
+  aliases,
+  onClose,
+}: {
+  kindLabel: string;
+  common: EntityCommon;
+  aliases: string[];
+  onClose: () => void;
+}) {
+  const statusKey = (common.status || "unknown").toLowerCase();
+  const badge = STATUS_BADGE[statusKey] ?? STATUS_BADGE.unknown;
+
+  return (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-xs uppercase tracking-wider text-neutral-500">Pipeline</div>
-          <h2 className="mt-1 text-lg font-semibold leading-tight">{selected.name}</h2>
-          {selected.name_es && selected.name_es !== selected.name && (
-            <div className="mt-0.5 text-sm text-neutral-400">{selected.name_es}</div>
+          <div className="text-xs uppercase tracking-wider text-neutral-500">
+            {kindLabel}
+          </div>
+          <h2 className="mt-1 text-lg font-semibold leading-tight">{common.name}</h2>
+          {common.name_es && common.name_es !== common.name && (
+            <div className="mt-0.5 text-sm text-neutral-400">{common.name_es}</div>
           )}
           {aliases.length > 0 && (
             <div className="mt-1 text-xs text-neutral-500">
@@ -75,87 +122,129 @@ export default function DetailPanel({ selected, onClose }: Props) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className={`rounded border px-2 py-0.5 text-xs uppercase tracking-wider ${badge}`}>
-          {selected.status}
+          {common.status}
         </span>
-        {selected.status_as_of && (
+        {common.status_as_of && (
           <span className="text-xs text-neutral-500">
-            as of {new Date(selected.status_as_of).toISOString().slice(0, 10)}
+            as of {new Date(common.status_as_of).toISOString().slice(0, 10)}
           </span>
         )}
       </div>
+    </>
+  );
+}
 
-      <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-        <Field label="Length" value={formatNumber(selected.length_km, "km")} />
-        <Field label="Diameter" value={formatNumber(selected.diameter_in, "in")} />
-        <Field label="Capacity" value={formatNumber(selected.capacity_mmcfd, "mmcfd")} />
-        <Field label="Operator" value={selected.operator ?? null} />
-      </dl>
+function PipelineFields({ p }: { p: PipelineProperties }) {
+  return (
+    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+      <Field label="Length" value={formatNumber(p.length_km, "km")} />
+      <Field label="Diameter" value={formatNumber(p.diameter_in, "in")} />
+      <Field label="Capacity" value={formatNumber(p.capacity_mmcfd, "mmcfd")} />
+      <Field label="Operator" value={p.operator ?? null} />
+    </dl>
+  );
+}
 
-      {Boolean(extra.note || extra.cross_border) && (
-        <div className="mt-5 border-t border-neutral-800 pt-4 text-sm text-neutral-300">
-          {Array.isArray(extra.cross_border) && (extra.cross_border as string[]).length > 1 && (
-            <div className="mb-2 text-xs uppercase tracking-wider text-neutral-500">
-              Cross-border: {(extra.cross_border as string[]).join(" ↔ ")}
-            </div>
-          )}
-          {typeof extra.note === "string" && <p className="leading-snug">{extra.note}</p>}
-          {typeof extra.geometry_quality === "string" && (
-            <p className="mt-2 text-xs text-neutral-500">
-              Geometry: {extra.geometry_quality.replace(/_/g, " ")}
-            </p>
-          )}
-        </div>
-      )}
+function GasFieldFields({
+  p,
+  extra,
+}: {
+  p: GasFieldProperties;
+  extra: Record<string, unknown>;
+}) {
+  const reservoirType =
+    typeof extra.reservoir_type === "string" ? (extra.reservoir_type as string) : null;
+  const reservesEstimate =
+    typeof extra.reserves_tcf === "number"
+      ? `${(extra.reserves_tcf as number).toLocaleString(undefined, { maximumFractionDigits: 1 })} Tcf`
+      : typeof extra.reserves_estimate === "string"
+      ? (extra.reserves_estimate as string)
+      : null;
+  const basin = typeof extra.basin === "string" ? (extra.basin as string) : null;
 
-      <div className="mt-5 border-t border-neutral-800 pt-4">
-        <div className="text-xs uppercase tracking-wider text-neutral-500">Sources</div>
-        {sources.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-400">No sources recorded.</p>
-        ) : (
-          <ul className="mt-2 space-y-2 text-sm">
-            {sources.map((s, i) => (
-              <li key={i} className="leading-snug">
-                <span className="font-medium text-neutral-200">{s.source_name}</span>
-                {s.source_id && (
-                  <span className="ml-1 text-neutral-500">[{s.source_id}]</span>
-                )}
-                {s.url && (
-                  <>
-                    {" "}
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-emerald-400 underline-offset-2 hover:underline"
-                    >
-                      link
-                    </a>
-                  </>
-                )}
-                {s.note && <div className="text-xs text-neutral-500">{s.note}</div>}
-                <div className="text-xs text-neutral-600">
-                  retrieved {new Date(s.retrieved_at).toISOString().slice(0, 10)}
-                </div>
-              </li>
-            ))}
-          </ul>
+  return (
+    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+      <Field label="Operator" value={p.operator ?? null} />
+      <Field label="Reservoir" value={reservoirType} />
+      <Field label="Basin" value={basin} />
+      <Field label="Reserves" value={reservesEstimate} />
+    </dl>
+  );
+}
+
+function NoteBlock({ extra }: { extra: Record<string, unknown> }) {
+  if (!extra.note && !extra.cross_border && !extra.geometry_quality) return null;
+  return (
+    <div className="mt-5 border-t border-neutral-800 pt-4 text-sm text-neutral-300">
+      {Array.isArray(extra.cross_border) &&
+        (extra.cross_border as string[]).length > 1 && (
+          <div className="mb-2 text-xs uppercase tracking-wider text-neutral-500">
+            Cross-border: {(extra.cross_border as string[]).join(" ↔ ")}
+          </div>
         )}
-      </div>
-
-      {Object.keys(externalIds).length > 0 && (
-        <div className="mt-5 border-t border-neutral-800 pt-4 text-xs text-neutral-500">
-          <div className="uppercase tracking-wider">External IDs</div>
-          <ul className="mt-1 space-y-0.5 font-mono">
-            {Object.entries(externalIds).map(([k, v]) => (
-              <li key={k}>
-                <span className="text-neutral-400">{k}</span> ={" "}
-                <span className="text-neutral-300">{v}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {typeof extra.note === "string" && <p className="leading-snug">{extra.note}</p>}
+      {typeof extra.geometry_quality === "string" && (
+        <p className="mt-2 text-xs text-neutral-500">
+          Geometry: {extra.geometry_quality.replace(/_/g, " ")}
+        </p>
       )}
-    </aside>
+    </div>
+  );
+}
+
+function SourcesList({ sources }: { sources: Source[] }) {
+  return (
+    <div className="mt-5 border-t border-neutral-800 pt-4">
+      <div className="text-xs uppercase tracking-wider text-neutral-500">Sources</div>
+      {sources.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-400">No sources recorded.</p>
+      ) : (
+        <ul className="mt-2 space-y-2 text-sm">
+          {sources.map((s, i) => (
+            <li key={i} className="leading-snug">
+              <span className="font-medium text-neutral-200">{s.source_name}</span>
+              {s.source_id && (
+                <span className="ml-1 text-neutral-500">[{s.source_id}]</span>
+              )}
+              {s.url && (
+                <>
+                  {" "}
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-emerald-400 underline-offset-2 hover:underline"
+                  >
+                    link
+                  </a>
+                </>
+              )}
+              {s.note && <div className="text-xs text-neutral-500">{s.note}</div>}
+              <div className="text-xs text-neutral-600">
+                retrieved {new Date(s.retrieved_at).toISOString().slice(0, 10)}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ExternalIdsList({ externalIds }: { externalIds: Record<string, string> }) {
+  if (Object.keys(externalIds).length === 0) return null;
+  return (
+    <div className="mt-5 border-t border-neutral-800 pt-4 text-xs text-neutral-500">
+      <div className="uppercase tracking-wider">External IDs</div>
+      <ul className="mt-1 space-y-0.5 font-mono">
+        {Object.entries(externalIds).map(([k, v]) => (
+          <li key={k}>
+            <span className="text-neutral-400">{k}</span> ={" "}
+            <span className="text-neutral-300">{v}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -163,7 +252,9 @@ function Field({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <dt className="text-xs uppercase tracking-wider text-neutral-500">{label}</dt>
-      <dd className="mt-0.5 text-neutral-200">{value ?? <span className="text-neutral-600">—</span>}</dd>
+      <dd className="mt-0.5 text-neutral-200">
+        {value ?? <span className="text-neutral-600">—</span>}
+      </dd>
     </div>
   );
 }

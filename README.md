@@ -174,22 +174,42 @@ and `sources` in the detail panel.
 
 ## Adding a new entity type
 
-Suppose you want a `processing_plants` layer.
+`gas_fields` is the worked example. Use it as a template — every file in the
+list below has a matching pipeline-side and gas-field-side. To add e.g.
+`processing_plants` next, copy the gas-field files and rename:
 
-1. **Model** — `backend/app/models/processing_plant.py`. Inherit
-   `Base, EntityBase`; add a `Geometry("POINT", srid=4326)` column and the
-   plant-specific columns. Register in `models/__init__.py`.
-2. **Migration** — `cd backend && ../backend/.venv/bin/alembic revision
-   --autogenerate -m "processing_plants"`, review, commit.
-3. **Schema** — `backend/app/schemas/processing_plant.py` with
-   `ProcessingPlantFeature` / `ProcessingPlantFeatureCollection`.
-4. **API** — `backend/app/api/processing_plants.py` with
-   `GET /api/processing_plants`. Register in `main.py`.
-5. **Frontend** — `frontend/src/map/layers/processing_plants.ts` with a
-   `LayerConfig`. Append it to the layer list in `MapView.tsx`. Done.
+1. **Model** — `backend/app/models/<entity>.py` (cf. `gas_field.py`). Inherit
+   `Base, EntityBase`; add a `Geometry(<TYPE>, srid=4326, spatial_index=False)`
+   column and any entity-specific columns. Register in
+   `backend/app/models/__init__.py`.
+2. **Migration** — copy `backend/alembic/versions/0002_gas_fields.py`,
+   bump the revision id, list the columns. Don't re-emit
+   `CREATE EXTENSION postgis` — it's already in 0001.
+3. **Schema** — `backend/app/schemas/<entity>.py` mirroring `gas_field.py`.
+4. **API** — `backend/app/api/<entity>s.py` mirroring `gas_fields.py`.
+   Register in `app/main.py`.
+5. **Upsert helper** — add `<Entity>Record` + `upsert_<entity>` siblings in
+   `data_pipeline/common/upsert.py`.
+6. **Seed (optional)** — extend `data_pipeline/sources/manual_seed/load.py`
+   with a `_<entity>_records()` and a loop in `run()`.
+7. **Frontend types** — extend `frontend/src/types/geojson.ts`: add the
+   `<Entity>Properties`/`Feature`/`FeatureCollection` types and a new arm to
+   the `SelectedEntity` discriminated union.
+8. **Frontend api** — `frontend/src/api/<entity>s.ts` with `fetch<Entity>s()`.
+9. **Frontend layer** — `frontend/src/map/layers/<entity>s.ts` mirroring
+   `gas-fields.ts`; declare its `layerIds: string[]` so visibility toggling
+   works.
+10. **Wire** — append the layer to the registry array in
+    `frontend/src/map/MapView.tsx` and add a `LayerToggleRow` for it in
+    `frontend/src/App.tsx`.
+11. **DetailPanel** — add a `<Entity>Fields` subcomponent in
+    `frontend/src/components/DetailPanel.tsx` and a new branch in the
+    `kind` switch.
 
-The shared `EntityBase` columns guarantee that provenance, status, aliases,
-and external IDs work the same way for every entity type.
+The shared `EntityBase` columns guarantee provenance, status, aliases, and
+external IDs work the same way for every entity type. Entity-specific
+attributes that don't deserve a column (reservoir type, basin, reserves)
+go in the `properties` JSONB.
 
 ## Useful Make targets
 

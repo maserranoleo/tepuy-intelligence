@@ -11,11 +11,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from shapely.geometry.base import BaseGeometry
-from shapely.geometry import MultiLineString
+from shapely.geometry import MultiLineString, Point
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from geoalchemy2.shape import from_shape
 
+from app.models.gas_field import GasField
 from app.models.pipeline import Pipeline
 
 
@@ -65,6 +66,29 @@ def _to_multilinestring(geom: BaseGeometry) -> MultiLineString:
     raise ValueError(f"unsupported pipeline geometry: {geom.geom_type}")
 
 
+@dataclass
+class GasFieldRecord:
+    """Normalized gas-field record ready to upsert."""
+
+    source_name: str
+    external_id: str
+    name: str
+    geometry: BaseGeometry  # Point
+    name_es: str | None = None
+    aliases: list[str] = field(default_factory=list)
+    status: str = "unknown"
+    status_as_of: datetime | None = None
+    operator: str | None = None
+    properties: dict[str, Any] = field(default_factory=dict)
+    sources: list[SourceRef] = field(default_factory=list)
+
+
+def _to_point(geom: BaseGeometry) -> Point:
+    if isinstance(geom, Point):
+        return geom
+    raise ValueError(f"unsupported gas-field geometry: {geom.geom_type}")
+
+
 def upsert_pipeline(db: Session, rec: PipelineRecord) -> Pipeline:
     """Look up by external_ids[source_name] = external_id; update or insert."""
     stmt = select(Pipeline).where(
@@ -100,6 +124,43 @@ def upsert_pipeline(db: Session, rec: PipelineRecord) -> Pipeline:
         row.length_km = rec.length_km
         row.diameter_in = rec.diameter_in
         row.capacity_mmcfd = rec.capacity_mmcfd
+        row.operator = rec.operator
+        row.geometry = geom
+        row.properties = rec.properties
+        row.external_ids = {**(row.external_ids or {}), rec.source_name: rec.external_id}
+        row.sources = [s.to_jsonb() for s in rec.sources]
+    return row
+
+
+def upsert_gas_field(db: Session, rec: GasFieldRecord) -> GasField:
+    """Look up by external_ids[source_name] = external_id; update or insert."""
+    stmt = select(GasField).where(
+        GasField.external_ids[rec.source_name].astext == rec.external_id
+    )
+    row = db.execute(stmt).scalar_one_or_none()
+
+    geom = from_shape(_to_point(rec.geometry), srid=4326)
+
+    if row is None:
+        row = GasField(
+            name=rec.name,
+            name_es=rec.name_es,
+            aliases=rec.aliases,
+            status=rec.status,
+            status_as_of=rec.status_as_of,
+            operator=rec.operator,
+            geometry=geom,
+            properties=rec.properties,
+            external_ids={rec.source_name: rec.external_id},
+            sources=[s.to_jsonb() for s in rec.sources],
+        )
+        db.add(row)
+    else:
+        row.name = rec.name
+        row.name_es = rec.name_es
+        row.aliases = rec.aliases
+        row.status = rec.status
+        row.status_as_of = rec.status_as_of
         row.operator = rec.operator
         row.geometry = geom
         row.properties = rec.properties

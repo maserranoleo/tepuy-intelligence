@@ -39,11 +39,12 @@ const DASH_EXPR = [
   ["literal", [1]],
 ] as unknown as never;
 
-export const pipelinesLayer: LayerConfig<PipelineProperties> = {
+export const pipelinesLayer: LayerConfig = {
   id: "pipelines",
   label: "Gas Pipelines",
+  layerIds: [HALO_ID, LINE_ID],
   fetch: () => fetchPipelines() as unknown as Promise<FeatureCollection>,
-  install(map: MLMap, data: FeatureCollection, ctx: LayerContext<PipelineProperties>) {
+  install(map: MLMap, data: FeatureCollection, ctx: LayerContext) {
     if (!map.getSource(SRC_ID)) {
       map.addSource(SRC_ID, { type: "geojson", data });
     }
@@ -86,7 +87,10 @@ export const pipelinesLayer: LayerConfig<PipelineProperties> = {
     map.on("click", LINE_ID, (e) => {
       const f = e.features?.[0];
       if (!f) return;
-      ctx.onSelect(f.properties as unknown as PipelineProperties);
+      ctx.onSelect({
+        kind: "pipeline",
+        props: f.properties as unknown as PipelineProperties,
+      });
     });
   },
 };

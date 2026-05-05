@@ -20,11 +20,17 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from data_pipeline.common.upsert import PipelineRecord, SourceRef, upsert_pipeline
+from data_pipeline.common.upsert import (
+    GasFieldRecord,
+    PipelineRecord,
+    SourceRef,
+    upsert_gas_field,
+    upsert_pipeline,
+)
 
 logger = logging.getLogger("manual_seed")
 
@@ -56,7 +62,7 @@ def _line(a: Endpoint, *waypoints: Endpoint, b: Endpoint) -> LineString:
     return LineString(coords)
 
 
-def _records() -> list[PipelineRecord]:
+def _pipeline_records() -> list[PipelineRecord]:
     now = datetime.now(UTC)
 
     return [
@@ -238,22 +244,133 @@ def _records() -> list[PipelineRecord]:
     ]
 
 
-def run(db: Session) -> int:
-    records = _records()
-    for rec in records:
+def _gas_field_records() -> list[GasFieldRecord]:
+    """Three real, publicly-sourced Venezuelan gas fields, chosen to span
+    offshore (Perla), proposed/dev (Dragon), and cross-border (Loran-Manatee)."""
+    now = datetime.now(UTC)
+    return [
+        GasFieldRecord(
+            source_name=SOURCE_NAME,
+            external_id="ven-perla-cardon-iv",
+            name="Perla Field (Cardón IV block)",
+            name_es="Campo Perla (Bloque Cardón IV)",
+            aliases=["Cardón IV"],
+            status="operating",
+            status_as_of=now,
+            operator="Eni / Repsol (Cardón IV consortium)",
+            geometry=Point(-70.50, 12.10),
+            properties={
+                "geometry_quality": "approximate_centroid",
+                "basin": "Gulf of Venezuela (offshore Falcón)",
+                "reservoir_type": "non-associated gas",
+                "reserves_estimate": "~17 Tcf gas in place (largest non-associated gas discovery in LatAm)",
+                "note": "Producing offshore gas field tied into the Falcón onshore "
+                        "system. Plateau ~800 mmcfd target.",
+            },
+            sources=[
+                SourceRef(
+                    source_name="Eni",
+                    note="Operator press releases on Perla / Cardón IV",
+                    url="https://www.eni.com/",
+                    retrieved_at=now,
+                ),
+                SourceRef(
+                    source_name="EIA",
+                    note="Venezuela Country Analysis Brief — natural gas section",
+                    url="https://www.eia.gov/international/analysis/country/VEN",
+                    retrieved_at=now,
+                ),
+            ],
+        ),
+        GasFieldRecord(
+            source_name=SOURCE_NAME,
+            external_id="ven-dragon-mariscal-sucre",
+            name="Dragon Field (Mariscal Sucre Project)",
+            name_es="Campo Dragón (Proyecto Mariscal Sucre)",
+            aliases=["Mariscal Sucre — Dragon"],
+            status="proposed",
+            status_as_of=now,
+            operator="PDVSA / Shell / NGC (under OFAC license)",
+            geometry=Point(-62.35, 10.95),
+            properties={
+                "geometry_quality": "approximate_centroid",
+                "basin": "Gulf of Paria (offshore Sucre)",
+                "reservoir_type": "non-associated gas",
+                "reserves_estimate": "~4 Tcf recoverable",
+                "note": "Largest of the four Mariscal Sucre fields (Dragon, Patao, "
+                        "Mejillones, Río Caribe). Subject to OFAC licensing for the "
+                        "Dragon-to-Hibiscus monetization route via Trinidad LNG.",
+            },
+            sources=[
+                SourceRef(
+                    source_name="Reuters",
+                    note="Coverage of Dragon field and OFAC license modifications",
+                    url="https://www.reuters.com/",
+                    retrieved_at=now,
+                ),
+                SourceRef(
+                    source_name="S&P Global Commodity Insights",
+                    url="https://www.spglobal.com/commodityinsights",
+                    retrieved_at=now,
+                ),
+            ],
+        ),
+        GasFieldRecord(
+            source_name=SOURCE_NAME,
+            external_id="ven-loran-manatee",
+            name="Loran-Manatee Field (Plataforma Deltana)",
+            name_es="Campo Loran-Manatee (Plataforma Deltana)",
+            aliases=["Loran", "Manatee"],
+            status="idle",
+            status_as_of=now,
+            operator="Historical: Chevron / Shell (cross-border unitization)",
+            geometry=Point(-61.40, 10.40),
+            properties={
+                "geometry_quality": "approximate_centroid",
+                "cross_border": ["VE", "TT"],
+                "basin": "Plataforma Deltana / East Coast Marine Area",
+                "reservoir_type": "non-associated gas",
+                "reserves_estimate": "~10 Tcf recoverable (combined Loran + Manatee)",
+                "note": "Cross-border gas accumulation straddling the VE↔TT maritime "
+                        "boundary; subject to a 2010 unitization framework, "
+                        "development paused.",
+            },
+            sources=[
+                SourceRef(
+                    source_name="S&P Global Commodity Insights",
+                    url="https://www.spglobal.com/commodityinsights",
+                    retrieved_at=now,
+                ),
+                SourceRef(
+                    source_name="Reuters",
+                    url="https://www.reuters.com/",
+                    retrieved_at=now,
+                ),
+            ],
+        ),
+    ]
+
+
+def run(db: Session) -> tuple[int, int]:
+    pipelines = _pipeline_records()
+    for rec in pipelines:
         upsert_pipeline(db, rec)
+    fields = _gas_field_records()
+    for rec in fields:
+        upsert_gas_field(db, rec)
     db.commit()
-    return len(records)
+    return len(pipelines), len(fields)
 
 
 def main() -> int:
     db = SessionLocal()
     try:
-        n = run(db)
+        n_pipes, n_fields = run(db)
     finally:
         db.close()
-    logger.info("manual_seed: upserted %d pipelines", n)
-    print(f"manual_seed: upserted {n} pipelines")
+    msg = f"manual_seed: upserted {n_pipes} pipelines, {n_fields} gas fields"
+    logger.info(msg)
+    print(msg)
     return 0
 
 

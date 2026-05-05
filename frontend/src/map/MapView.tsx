@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import maplibregl, { Map as MLMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { LayerRegistry } from "./LayerRegistry";
+import { LayerRegistry, type OnSelect } from "./LayerRegistry";
 import { pipelinesLayer } from "./layers/pipelines";
-import type { PipelineProperties } from "@/types/geojson";
+import { gasFieldsLayer } from "./layers/gas-fields";
 
 const VEN_BOUNDS: [[number, number], [number, number]] = [
   [-73.5, 0.5],
@@ -13,10 +13,13 @@ const VEN_BOUNDS: [[number, number], [number, number]] = [
 const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
 
 type Props = {
-  onSelect: (p: PipelineProperties) => void;
+  onSelect: OnSelect;
+  /** Called once after the registry is ready, so the parent can drive
+   *  layer-visibility toggles via registry.setVisibility. */
+  onRegistryReady?: (registry: LayerRegistry) => void;
 };
 
-export default function MapView({ onSelect }: Props) {
+export default function MapView({ onSelect, onRegistryReady }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
 
@@ -37,8 +40,11 @@ export default function MapView({ onSelect }: Props) {
     );
 
     map.on("load", async () => {
-      const registry = new LayerRegistry(map, [pipelinesLayer]);
-      await registry.installAll<PipelineProperties>({ onSelect });
+      // Pipelines first (lines underneath); gas fields layer on top so its
+      // circles are click-priority over line endpoints.
+      const registry = new LayerRegistry(map, [pipelinesLayer, gasFieldsLayer]);
+      await registry.installAll({ onSelect });
+      onRegistryReady?.(registry);
     });
 
     mapRef.current = map;
@@ -46,7 +52,7 @@ export default function MapView({ onSelect }: Props) {
       map.remove();
       mapRef.current = null;
     };
-  }, [onSelect]);
+  }, [onSelect, onRegistryReady]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
