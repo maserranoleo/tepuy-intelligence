@@ -9,6 +9,8 @@ import type {
   SelectedEntity,
   Source,
 } from "@/types/geojson";
+import AnnotationsBlock from "./AnnotationsBlock";
+import type { AnnotationEntityKind } from "@/types/annotations";
 
 type Props = {
   selected: SelectedEntity | null;
@@ -106,6 +108,10 @@ export default function DetailPanel({ selected, onClose }: Props) {
 
       <NoteBlock extra={extra} />
       <SanctionsBlock sanctions={sanctions} operator={props.operator ?? null} />
+      <AnnotationsBlock
+        entityKind={selected.kind as AnnotationEntityKind}
+        entityId={props.id}
+      />
       <SourcesList sources={sources} />
       <ExternalIdsList externalIds={externalIds} />
     </aside>

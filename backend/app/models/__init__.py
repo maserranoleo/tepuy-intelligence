@@ -1,3 +1,4 @@
+from app.models.annotation import Annotation
 from app.models.base import Base, EntityBase
 from app.models.flare_event import FlareEvent
 from app.models.gas_field import GasField
@@ -13,4 +14,5 @@ __all__ = [
     "FlareEvent",
     "ProcessingPlant",
     "SanctionsEntry",
+    "Annotation",
 ]

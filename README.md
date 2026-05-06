@@ -20,6 +20,11 @@ The operational picture of Venezuela's natural gas system. v1 ships:
   Surfaced in the detail panel as "Flare Activity (5 km · 30 d)" with
   count, last-seen, and peak FRP. Persistent signal = strong evidence
   the asset is actually operating.
+- **Analyst notes (annotations).** Add free-form notes against any
+  pipeline, gas field, or processing plant directly from the detail
+  panel, with three severity levels (Info / Watch / Risk). Backed by an
+  `annotations` table; persists across reloads. Single-user in v1 (no
+  author column); Supabase Auth slots in cleanly later.
 - A FastAPI backend serving GeoJSON from PostGIS.
 - Four ingestion paths:
   - `manual_seed` — real, cited Venezuelan pipelines + gas fields (auto-runs).
