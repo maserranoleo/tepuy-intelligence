@@ -24,6 +24,8 @@ help:
 	@echo "  make ingest-gem FILE=path/to/ggit.xlsx"
 	@echo "  make ingest-firms [DAYS=7] [SOURCE=VIIRS_SNPP_NRT]"
 	@echo "  make ingest-ofac  [URL=<override>] [FILE=path/to/SDN.CSV]"
+	@echo "  make fetch-boundaries     Replace the country-focus polygon with"
+	@echo "                            Natural Earth admin-0 (1:50m, public domain)"
 	@echo "  make typecheck-front"
 	@echo "  make build-front          Production build"
 	@echo "  make clean                Remove venv + node_modules"
@@ -59,6 +61,9 @@ ingest-ofac:
 	PYTHONPATH=backend:. $(PY) -m data_pipeline.sources.ofac.load \
 		$(if $(URL),--url $(URL)) \
 		$(if $(FILE),--file $(FILE))
+
+fetch-boundaries:
+	PYTHONPATH=backend:. $(PY) -m data_pipeline.sources.boundaries.fetch
 
 typecheck-front:
 	cd frontend && npx tsc --noEmit
