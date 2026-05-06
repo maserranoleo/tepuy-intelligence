@@ -15,6 +15,11 @@ The operational picture of Venezuela's natural gas system. v1 ships:
   the U.S. Treasury Specially Designated Nationals list at API request
   time; potential matches surface as a red badge in the detail panel with
   a direct link to the OFAC entry.
+- **FIRMS proximity classifier.** For each gas field and processing plant,
+  the API counts VIIRS flare detections within 5 km in the last 30 days.
+  Surfaced in the detail panel as "Flare Activity (5 km · 30 d)" with
+  count, last-seen, and peak FRP. Persistent signal = strong evidence
+  the asset is actually operating.
 - A FastAPI backend serving GeoJSON from PostGIS.
 - Four ingestion paths:
   - `manual_seed` — real, cited Venezuelan pipelines + gas fields (auto-runs).

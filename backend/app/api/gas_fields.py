@@ -1,11 +1,14 @@
 import json
+from datetime import datetime
 from uuid import UUID
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from geoalchemy2 import Geography
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.flare_event import FlareEvent
 from app.models.gas_field import GasField
 from app.sanctions.dependency import get_matcher
 from app.sanctions.matcher import SanctionsMatcher
@@ -14,12 +17,32 @@ from app.schemas.gas_field import (
     GasFieldFeatureCollection,
     GasFieldProperties,
 )
+from app.services.flare_proximity import PROXIMITY_M, WINDOW_DAYS
 
 router = APIRouter(prefix="/api/gas_fields", tags=["gas_fields"])
 
 
+def _proximity_join_clause():
+    """ON-clause for the LEFT JOIN to flare_events: within PROXIMITY_M
+    metres of the asset and within the recent WINDOW_DAYS."""
+    return sa.and_(
+        sa.func.ST_DWithin(
+            sa.cast(GasField.geometry, Geography),
+            sa.cast(FlareEvent.geometry, Geography),
+            PROXIMITY_M,
+        ),
+        FlareEvent.acquired_at
+        >= sa.func.now() - sa.text(f"interval '{WINDOW_DAYS} days'"),
+    )
+
+
 def _row_to_feature(
-    row: GasField, geojson: str, matcher: SanctionsMatcher
+    row: GasField,
+    geojson: str,
+    flare_count: int,
+    last_flare: datetime | None,
+    peak_frp: float | None,
+    matcher: SanctionsMatcher,
 ) -> GasFieldFeature:
     return GasFieldFeature(
         geometry=json.loads(geojson),
@@ -35,6 +58,9 @@ def _row_to_feature(
             external_ids=row.external_ids or {},
             sources=row.sources or [],
             sanctions=[m.to_jsonable() for m in matcher.match(row.operator)],
+            recent_flare_count=int(flare_count or 0),
+            last_flare_at=last_flare,
+            peak_frp_mw=float(peak_frp) if peak_frp is not None else None,
         ),
     )
 
@@ -44,10 +70,21 @@ def list_gas_fields(
     db: Session = Depends(get_db),
     matcher: SanctionsMatcher = Depends(get_matcher),
 ) -> GasFieldFeatureCollection:
-    stmt = select(GasField, func.ST_AsGeoJSON(GasField.geometry)).order_by(GasField.name)
+    stmt = (
+        sa.select(
+            GasField,
+            sa.func.ST_AsGeoJSON(GasField.geometry),
+            sa.func.count(FlareEvent.id).label("flare_count"),
+            sa.func.max(FlareEvent.acquired_at).label("last_flare"),
+            sa.func.max(FlareEvent.frp).label("peak_frp"),
+        )
+        .outerjoin(FlareEvent, _proximity_join_clause())
+        .group_by(GasField.id)
+        .order_by(GasField.name)
+    )
     features = [
-        _row_to_feature(row, geojson, matcher)
-        for row, geojson in db.execute(stmt).all()
+        _row_to_feature(row, geojson, count, last_flare, peak_frp, matcher)
+        for row, geojson, count, last_flare, peak_frp in db.execute(stmt).all()
     ]
     return GasFieldFeatureCollection(features=features)
 
@@ -58,11 +95,20 @@ def get_gas_field(
     db: Session = Depends(get_db),
     matcher: SanctionsMatcher = Depends(get_matcher),
 ) -> GasFieldFeature:
-    stmt = select(GasField, func.ST_AsGeoJSON(GasField.geometry)).where(
-        GasField.id == gas_field_id
+    stmt = (
+        sa.select(
+            GasField,
+            sa.func.ST_AsGeoJSON(GasField.geometry),
+            sa.func.count(FlareEvent.id).label("flare_count"),
+            sa.func.max(FlareEvent.acquired_at).label("last_flare"),
+            sa.func.max(FlareEvent.frp).label("peak_frp"),
+        )
+        .outerjoin(FlareEvent, _proximity_join_clause())
+        .where(GasField.id == gas_field_id)
+        .group_by(GasField.id)
     )
     result = db.execute(stmt).first()
     if result is None:
         raise HTTPException(status_code=404, detail="gas field not found")
-    row, geojson = result
-    return _row_to_feature(row, geojson, matcher)
+    row, geojson, count, last_flare, peak_frp = result
+    return _row_to_feature(row, geojson, count, last_flare, peak_frp, matcher)

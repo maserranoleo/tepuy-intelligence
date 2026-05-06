@@ -1,6 +1,7 @@
 import type {
   EntityCommon,
   FlareEventProperties,
+  FlareProximity,
   GasFieldProperties,
   PipelineProperties,
   ProcessingPlantProperties,
@@ -94,6 +95,13 @@ export default function DetailPanel({ selected, onClose }: Props) {
         />
       ) : (
         <GasFieldFields p={props as GasFieldProperties} extra={extra} />
+      )}
+
+      {(selected.kind === "gas_field" ||
+        selected.kind === "processing_plant") && (
+        <FlareActivityBlock
+          stats={props as unknown as FlareProximity}
+        />
       )}
 
       <NoteBlock extra={extra} />
@@ -297,6 +305,76 @@ function GasFieldFields({
       <Field label="Basin" value={basin} />
       <Field label="Reserves" value={reservesEstimate} />
     </dl>
+  );
+}
+
+function FlareActivityBlock({ stats }: { stats: FlareProximity }) {
+  const count = Number(stats.recent_flare_count ?? 0);
+  const lastSeen = stats.last_flare_at ? new Date(stats.last_flare_at) : null;
+  const peakFrp =
+    stats.peak_frp_mw !== null && stats.peak_frp_mw !== undefined
+      ? Number(stats.peak_frp_mw)
+      : null;
+
+  // Heuristic visual tier: 0 = quiet, 1-5 = weak, 6+ = strong signal.
+  const tier = count === 0 ? "quiet" : count <= 5 ? "weak" : "strong";
+  const styles: Record<typeof tier, string> = {
+    quiet: "border-neutral-800 bg-neutral-900/40 text-neutral-400",
+    weak: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+    strong: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
+  };
+  const headlineStyles: Record<typeof tier, string> = {
+    quiet: "text-neutral-300",
+    weak: "text-amber-200",
+    strong: "text-emerald-200",
+  };
+
+  const daysAgo = lastSeen
+    ? Math.floor((Date.now() - lastSeen.getTime()) / 86400000)
+    : null;
+
+  return (
+    <div className={`mt-5 rounded border px-3 py-2.5 text-sm ${styles[tier]}`}>
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs uppercase tracking-wider opacity-80">
+          Flare Activity (5 km · 30 d)
+        </span>
+        <span className={`text-xl font-semibold tabular-nums ${headlineStyles[tier]}`}>
+          {count}
+        </span>
+      </div>
+      {count === 0 ? (
+        <p className="mt-1 text-xs leading-snug opacity-80">
+          No VIIRS detections within 5 km in the last 30 days. Either the
+          asset is quiet, FIRMS hasn't been ingested yet, or the assets's
+          coordinates are off.
+        </p>
+      ) : (
+        <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <div className="opacity-70">Last seen</div>
+          <div className="text-right tabular-nums">
+            {daysAgo === 0
+              ? "today"
+              : daysAgo === 1
+              ? "yesterday"
+              : `${daysAgo} d ago`}
+          </div>
+          <div className="opacity-70">Peak FRP</div>
+          <div className="text-right tabular-nums">
+            {peakFrp !== null
+              ? `${peakFrp.toLocaleString(undefined, { maximumFractionDigits: 1 })} MW`
+              : "—"}
+          </div>
+        </div>
+      )}
+      {count > 5 && (
+        <p className="mt-2 text-xs leading-snug opacity-70">
+          Persistent thermal signal — strong evidence the asset is operating.
+          Single detections can be wildfires; recurrence at one centroid is
+          the flare signature.
+        </p>
+      )}
+    </div>
   );
 }
 

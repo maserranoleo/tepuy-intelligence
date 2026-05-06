@@ -39,13 +39,23 @@ export type PipelineProperties = EntityCommon & {
   operator?: string | null;
 };
 
-export type GasFieldProperties = EntityCommon & {
-  operator?: string | null;
+/** FIRMS proximity classifier output (5 km / 30 days). All zero/null when
+ *  no FIRMS data has been ingested. */
+export type FlareProximity = {
+  recent_flare_count: number;
+  last_flare_at?: string | null;
+  peak_frp_mw?: number | null;
 };
 
-export type ProcessingPlantProperties = EntityCommon & {
-  operator?: string | null;
-};
+export type GasFieldProperties = EntityCommon &
+  FlareProximity & {
+    operator?: string | null;
+  };
+
+export type ProcessingPlantProperties = EntityCommon &
+  FlareProximity & {
+    operator?: string | null;
+  };
 
 export type PipelineFeature = {
   type: "Feature";

@@ -26,6 +26,12 @@ class GasFieldProperties(BaseModel):
     sources: list[Source] = Field(default_factory=list)
     sanctions: list[SanctionsMatch] = Field(default_factory=list)
 
+    # FIRMS proximity classifier output (5 km / 30 days; see services/flare_proximity.py).
+    # All zero / null when no FIRMS data has been ingested yet.
+    recent_flare_count: int = 0
+    last_flare_at: datetime | None = None
+    peak_frp_mw: float | None = None
+
 
 class GasFieldFeature(BaseModel):
     type: Literal["Feature"] = "Feature"
