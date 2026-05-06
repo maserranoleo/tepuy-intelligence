@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import MapView from "./map/MapView";
 import DetailPanel from "./components/DetailPanel";
+import SearchBox from "./components/SearchBox";
 import type { LayerRegistry } from "./map/LayerRegistry";
 import type { SelectedEntity } from "@/types/geojson";
 
@@ -15,9 +16,15 @@ export default function App() {
     processing_plants: true,
     flare_events: true,
   });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [resultCount, setResultCount] = useState<number | null>(null);
 
   const onSelect = useCallback((sel: SelectedEntity) => setSelected(sel), []);
   const onClose = useCallback(() => setSelected(null), []);
+  const onSearchResultCount = useCallback(
+    (count: number | null) => setResultCount(count),
+    []
+  );
 
   const toggleLayer = (key: LayerKey, value: boolean) => {
     setVisibilityState((v) => ({ ...v, [key]: value }));
@@ -35,10 +42,20 @@ export default function App() {
             Venezuela · Gas System
           </div>
         </div>
+        <SearchBox
+          value={searchQuery}
+          onChange={setSearchQuery}
+          resultCount={resultCount}
+        />
         <LayerPanel visibility={visibility} onToggle={toggleLayer} />
       </header>
 
-      <MapView onSelect={onSelect} onRegistryReady={setRegistry} />
+      <MapView
+        onSelect={onSelect}
+        onRegistryReady={setRegistry}
+        searchQuery={searchQuery}
+        onSearchResultCount={onSearchResultCount}
+      />
       <DetailPanel selected={selected} onClose={onClose} />
     </div>
   );

@@ -31,6 +31,7 @@ export const gasFieldsLayer: LayerConfig = {
   id: "gas_fields",
   label: "Gas Fields",
   layerIds: [CIRCLE_ID],
+  searchable: true,
   fetch: () => fetchGasFields() as unknown as Promise<FeatureCollection>,
   install(map: MLMap, data: FeatureCollection, ctx: LayerContext) {
     if (!map.getSource(SRC_ID)) {

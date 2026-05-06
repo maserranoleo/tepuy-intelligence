@@ -34,6 +34,7 @@ export const processingPlantsLayer: LayerConfig = {
   id: "processing_plants",
   label: "Processing & Compression Plants",
   layerIds: [CIRCLE_ID],
+  searchable: true,
   fetch: () => fetchProcessingPlants() as unknown as Promise<FeatureCollection>,
   install(map: MLMap, data: FeatureCollection, ctx: LayerContext) {
     if (!map.getSource(SRC_ID)) {

@@ -43,6 +43,7 @@ export const pipelinesLayer: LayerConfig = {
   id: "pipelines",
   label: "Gas Pipelines",
   layerIds: [HALO_ID, LINE_ID],
+  searchable: true,
   fetch: () => fetchPipelines() as unknown as Promise<FeatureCollection>,
   install(map: MLMap, data: FeatureCollection, ctx: LayerContext) {
     if (!map.getSource(SRC_ID)) {

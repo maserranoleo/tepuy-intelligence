@@ -20,11 +20,22 @@ type Props = {
   /** Called once after the registry is ready, so the parent can drive
    *  layer-visibility toggles via registry.setVisibility. */
   onRegistryReady?: (registry: LayerRegistry) => void;
+  /** Live search query; non-empty filters every searchable layer. */
+  searchQuery?: string;
+  /** Called after each setSearch with the total match count across
+   *  searchable layers — drives the "N results" badge. */
+  onSearchResultCount?: (count: number | null) => void;
 };
 
-export default function MapView({ onSelect, onRegistryReady }: Props) {
+export default function MapView({
+  onSelect,
+  onRegistryReady,
+  searchQuery = "",
+  onSearchResultCount,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
+  const registryRef = useRef<LayerRegistry | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -58,6 +69,14 @@ export default function MapView({ onSelect, onRegistryReady }: Props) {
         processingPlantsLayer,
       ]);
       await registry.installAll({ onSelect });
+      registryRef.current = registry;
+
+      // Apply current search if the user already typed before install finished.
+      if (searchQuery) {
+        const count = registry.setSearch(searchQuery);
+        onSearchResultCount?.(count);
+      }
+
       onRegistryReady?.(registry);
     });
 
@@ -65,8 +84,19 @@ export default function MapView({ onSelect, onRegistryReady }: Props) {
     return () => {
       map.remove();
       mapRef.current = null;
+      registryRef.current = null;
     };
-  }, [onSelect, onRegistryReady]);
+    // intentionally only re-run on mount — registry stays bound to this map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // React to live searchQuery changes after the registry is ready.
+  useEffect(() => {
+    const registry = registryRef.current;
+    if (!registry) return;
+    const count = registry.setSearch(searchQuery);
+    onSearchResultCount?.(searchQuery ? count : null);
+  }, [searchQuery, onSearchResultCount]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
